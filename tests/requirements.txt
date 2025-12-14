@@ -1,0 +1,31 @@
+# Requirements for Testing
+
+# Testing Frameworks
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+pytest-mock==3.12.0
+
+# HTTP Testing
+httpx==0.25.1
+requests==2.31.0
+
+# Load Testing
+locust==2.17.0
+k6==0.0.0  # Note: K6 needs to be installed separately
+
+# Security Testing
+bandit==1.7.5
+safety==2.3.5
+
+# Test Data
+faker==20.1.0
+factory-boy==3.3.0
+
+# Coverage
+coverage==7.3.2
+
+# Performance Testing
+memory-profiler==0.61.0
+py-spy==0.3.14
+

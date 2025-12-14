@@ -1,0 +1,169 @@
+name: Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        pip install -r tests/requirements.txt
+    
+    - name: Run unit tests
+      run: |
+        pytest tests/unit/ -v --cov=. --cov-report=xml
+    
+    - name: Upload coverage
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+
+  integration-tests:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      
+      mongodb:
+        image: mongo:7
+        env:
+          MONGO_INITDB_ROOT_PASSWORD: mongopass
+        options: >-
+          --health-cmd "mongosh --eval 'db.runCommand({ping: 1})'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        pip install -r tests/requirements.txt
+    
+    - name: Run integration tests
+      run: |
+        pytest tests/integration/ -v
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost/test_db
+        MONGODB_URL: mongodb://root:mongopass@localhost:27017/
+        REDIS_URL: redis://localhost:6379/0
+
+  e2e-tests:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        pip install -r tests/requirements.txt
+    
+    - name: Start services
+      run: |
+        docker-compose up -d
+    
+    - name: Wait for services
+      run: |
+        sleep 30
+    
+    - name: Run E2E tests
+      run: |
+        pytest tests/e2e/ -v
+    
+    - name: Stop services
+      run: |
+        docker-compose down
+
+  security-tests:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install security tools
+      run: |
+        pip install bandit safety
+    
+    - name: Run Bandit
+      run: |
+        bandit -r . -f json -o bandit-report.json || true
+    
+    - name: Run Safety
+      run: |
+        safety check --json || true
+    
+    - name: Run security tests
+      run: |
+        pytest tests/security/ -v
+
+  performance-tests:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        pip install -r tests/requirements.txt
+        pip install locust
+    
+    - name: Start application
+      run: |
+        docker-compose up -d
+        sleep 30
+    
+    - name: Run load tests
+      run: |
+        locust -f tests/performance/load_test.py --headless -u 100 -r 10 -t 5m --host=http://localhost:8000 || true
+
