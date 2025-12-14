@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 
 export default function Home() {
   const [url, setUrl] = useState('')
@@ -12,7 +13,7 @@ export default function Home() {
     setLoading(true)
     
     try {
-      const response = await fetch('http://localhost:8000/analyze-site', {
+      const response = await fetch('http://localhost:8002/analyze-site', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -80,13 +81,13 @@ export default function Home() {
               {JSON.stringify(result, null, 2)}
             </pre>
             
-            {result.dashboard_url && (
-              <a
-                href={result.dashboard_url}
+            {result.analysis_id && (
+              <Link
+                href={`/dashboard/${result.analysis_id}`}
                 className="mt-4 inline-block bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors"
               >
                 مشاهده Dashboard
-              </a>
+              </Link>
             )}
           </div>
         )}

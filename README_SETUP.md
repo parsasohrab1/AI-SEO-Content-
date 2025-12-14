@@ -24,7 +24,7 @@ docker-compose logs -f
 ### دسترسی به سرویس‌ها
 - **Backend API:** http://localhost:8000
 - **API Docs:** http://localhost:8000/api/docs
-- **Frontend:** http://localhost:3000
+- **Frontend Dashboard:** http://localhost:3002
 - **RabbitMQ Management:** http://localhost:15672 (admin/admin)
 - **PostgreSQL:** localhost:5432
 - **MongoDB:** localhost:27017

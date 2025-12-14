@@ -43,11 +43,12 @@
 
 ---
 
-## ✅ فاز 2: توسعه هسته (10 هفته)
+## ✅ فاز 2: توسعه هسته (12 هفته - 6 اسپرینت)
 
 ### اسپرینت 1: زیرساخت و تحلیل پایه (2 هفته)
 
-#### هفته 1: راه‌اندازی محیط
+#### هفته 1: راه‌اندازی محیط و پایگاه داده
+**روز 1-2: Setup پروژه**
 - [ ] Project Structure
 - [ ] Docker Compose Setup
 - [ ] FastAPI Project
@@ -56,7 +57,7 @@
 - [ ] Pre-commit Hooks
 - [ ] CI/CD Pipeline
 
-#### هفته 1: پایگاه داده
+**روز 3-5: پایگاه داده**
 - [ ] SQLAlchemy Models
 - [ ] MongoDB Models
 - [ ] Migration Scripts
@@ -79,7 +80,8 @@
 
 ### اسپرینت 2: تحلیل سئو عمیق (2 هفته)
 
-#### هفته 1: Crawler پیشرفته
+#### هفته 1: Crawler پیشرفته و تحلیل فنی
+**روز 1-3: Advanced Crawler**
 - [ ] Distributed Crawler
 - [ ] Rate Limiting
 - [ ] JavaScript Rendering
@@ -87,7 +89,7 @@
 - [ ] Duplicate Detection
 - [ ] MinIO Storage
 
-#### هفته 1: تحلیل سئو فنی
+**روز 4-5: تحلیل سئو فنی**
 - [ ] Core Web Vitals
 - [ ] Crawlability Checker
 - [ ] Indexability Analyzer
@@ -95,7 +97,8 @@
 - [ ] Mobile-First Checker
 - [ ] Google PageSpeed Integration
 
-#### هفته 2: تحلیل محتوایی
+#### هفته 2: تحلیل محتوایی و خارجی
+**روز 1-3: تحلیل سئو محتوایی**
 - [ ] Keyword Extractor
 - [ ] Readability Analyzer
 - [ ] Content Structure Analyzer
@@ -103,7 +106,7 @@
 - [ ] Image Alt Checker
 - [ ] Meta Tags Analyzer
 
-#### هفته 2: تحلیل خارجی
+**روز 4-5: تحلیل خارجی و رقبا**
 - [ ] Google Search Console API
 - [ ] Google Analytics API
 - [ ] Backlink Analyzer

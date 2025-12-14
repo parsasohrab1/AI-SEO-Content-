@@ -22,7 +22,7 @@ fi
 
 # Check Frontend
 echo -n "Frontend Health: "
-if curl -f -s http://localhost:3000 > /dev/null 2>&1; then
+if curl -f -s http://localhost:3002 > /dev/null 2>&1; then
     echo -e "${GREEN}OK${NC}"
 else
     echo -e "${RED}FAILED${NC}"
