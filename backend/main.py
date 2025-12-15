@@ -257,10 +257,118 @@ async def get_seo_report(analysis_id: str):
 
 # Additional Endpoints
 @app.post("/dashboard/{analysis_id}/apply-fixes")
-async def apply_specific_fixes(analysis_id: str, fixes: List[str]):
+async def apply_specific_fixes(analysis_id: str, request_data: Dict):
     """اعمال اصلاحات خاص"""
-    # TODO: Implement
-    return {"message": "Not implemented yet", "fixes": fixes}
+    try:
+        from core.dashboard_manager import DashboardManager
+        from core.seo_implementation import AutoSEOImplementation
+        
+        fixes = request_data.get('fixes', [])
+        recommendation_ids = request_data.get('recommendation_ids', [])
+        
+        # دریافت داده‌های داشبورد
+        dashboard_manager = DashboardManager()
+        dashboard_data = await dashboard_manager.get_dashboard_data(analysis_id)
+        
+        if not dashboard_data:
+            raise HTTPException(status_code=404, detail="Dashboard not found")
+        
+        site_url = dashboard_data.get('site_url', '')
+        if not site_url:
+            raise HTTPException(status_code=400, detail="Site URL not found")
+        
+        # دریافت پیشنهادات
+        recommendations = dashboard_data.get('recommendations', [])
+        
+        # فیلتر کردن پیشنهادات انتخاب شده
+        selected_recommendations = []
+        if recommendation_ids:
+            for rec_id in recommendation_ids:
+                # پیدا کردن پیشنهاد بر اساس ID
+                rec = None
+                for i, r in enumerate(recommendations):
+                    if (r.get('id') == rec_id) or (f"rec_{i}" == rec_id):
+                        rec = r
+                        break
+                if rec:
+                    selected_recommendations.append(rec)
+        else:
+            # اگر ID نداشتیم، از عنوان استفاده می‌کنیم
+            for fix_title in fixes:
+                rec = next((r for r in recommendations if r.get('title') == fix_title), None)
+                if rec:
+                    selected_recommendations.append(rec)
+        
+        if not selected_recommendations:
+            raise HTTPException(status_code=400, detail="No valid recommendations found")
+        
+        # اعمال پیشنهادات
+        implementor = AutoSEOImplementation(site_url)
+        results = []
+        
+        for rec in selected_recommendations:
+            try:
+                # تبدیل پیشنهاد به issue format
+                issue = {
+                    'type': rec.get('category', 'general'),
+                    'priority': rec.get('priority', 'medium'),
+                    'title': rec.get('title', ''),
+                    'description': rec.get('description', ''),
+                    'automated': rec.get('automated', False)
+                }
+                
+                # اعمال fix
+                if rec.get('automated', False):
+                    result = await implementor.implement_fix(issue)
+                    results.append({
+                        'recommendation_id': rec.get('id', ''),
+                        'title': rec.get('title', ''),
+                        'status': 'success' if result.get('success') else 'failed',
+                        'message': result.get('message', 'اعمال شد'),
+                        'changes': result.get('changes', [])
+                    })
+                else:
+                    # برای پیشنهادات غیرخودکار، فقط ثبت می‌کنیم
+                    results.append({
+                        'recommendation_id': rec.get('id', ''),
+                        'title': rec.get('title', ''),
+                        'status': 'pending',
+                        'message': 'این پیشنهاد نیاز به اعمال دستی دارد',
+                        'manual_required': True
+                    })
+                    
+            except Exception as e:
+                logger.error(f"Error applying fix for {rec.get('title')}: {str(e)}")
+                results.append({
+                    'recommendation_id': rec.get('id', ''),
+                    'title': rec.get('title', ''),
+                    'status': 'failed',
+                    'message': f'خطا: {str(e)}'
+                })
+        
+        # به‌روزرسانی داشبورد
+        await dashboard_manager.update_dashboard(
+            analysis_id,
+            {
+                'applied_fixes': results,
+                'last_applied_at': datetime.now().isoformat()
+            }
+        )
+        
+        return {
+            'message': f'{len([r for r in results if r.get("status") == "success"])} پیشنهاد با موفقیت اعمال شد',
+            'results': results,
+            'total': len(results),
+            'successful': len([r for r in results if r.get('status') == 'success']),
+            'failed': len([r for r in results if r.get('status') == 'failed']),
+            'pending': len([r for r in results if r.get('status') == 'pending'])
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error applying fixes: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # Helper functions for live monitoring
@@ -314,43 +422,56 @@ def _generate_alerts(dashboard_data, site_analysis, seo_analysis):
     # بررسی وضعیت
     status = dashboard_data.get('status', 'unknown')
     if status == 'failed':
+        error_msg = dashboard_data.get('error') or dashboard_data.get('data', {}).get('error', 'خطای نامشخص')
         alerts.append({
             'type': 'error',
-            'message': 'تحلیل با خطا مواجه شده است',
+            'message': f'تحلیل با خطا مواجه شده است: {error_msg}',
             'priority': 'high',
             'timestamp': current_time.isoformat()
         })
+    
+    # بررسی اینکه آیا داده‌ها وجود دارند
+    if not site_analysis and not seo_analysis:
+        alerts.append({
+            'type': 'warning',
+            'message': 'داده‌های تحلیل هنوز آماده نشده است. لطفاً صبر کنید یا تحلیل جدیدی ایجاد کنید.',
+            'priority': 'medium',
+            'timestamp': current_time.isoformat()
+        })
+        return alerts  # اگر داده‌ای نیست، فقط این هشدار را برگردان
     
     # بررسی امنیت
-    security = site_analysis.get('security', {})
-    if not security.get('ssl_enabled'):
-        alerts.append({
-            'type': 'warning',
-            'message': 'HTTPS فعال نیست',
-            'priority': 'high',
-            'timestamp': current_time.isoformat()
-        })
-    
-    # بررسی عملکرد
-    performance = site_analysis.get('performance', {})
-    response_time = performance.get('response_time')
-    if response_time and response_time > 3:
-        alerts.append({
-            'type': 'warning',
-            'message': f'زمان پاسخ سرور کند است ({response_time:.2f}s)',
-            'priority': 'medium',
-            'timestamp': current_time.isoformat()
-        })
-    
-    # بررسی Sitemap
-    sitemap = site_analysis.get('sitemap', {})
-    if not sitemap.get('found'):
-        alerts.append({
-            'type': 'info',
-            'message': 'Sitemap یافت نشد',
-            'priority': 'medium',
-            'timestamp': current_time.isoformat()
-        })
+    if site_analysis:
+        security = site_analysis.get('security', {})
+        if security and not security.get('ssl_enabled'):
+            alerts.append({
+                'type': 'warning',
+                'message': 'HTTPS فعال نیست',
+                'priority': 'high',
+                'timestamp': current_time.isoformat()
+            })
+        
+        # بررسی عملکرد
+        performance = site_analysis.get('performance', {})
+        if performance:
+            response_time = performance.get('response_time')
+            if response_time and response_time > 3:
+                alerts.append({
+                    'type': 'warning',
+                    'message': f'زمان پاسخ سرور کند است ({response_time:.2f}s)',
+                    'priority': 'medium',
+                    'timestamp': current_time.isoformat()
+                })
+        
+        # بررسی Sitemap
+        sitemap = site_analysis.get('sitemap', {})
+        if sitemap and not sitemap.get('found'):
+            alerts.append({
+                'type': 'info',
+                'message': 'Sitemap یافت نشد',
+                'priority': 'medium',
+                'timestamp': current_time.isoformat()
+            })
     
     return alerts
 
@@ -411,16 +532,24 @@ async def get_live_monitoring(analysis_id: str):
         if not dashboard_data:
             raise HTTPException(status_code=404, detail="Dashboard not found")
         
-        # استخراج داده‌ها
-        site_analysis = dashboard_data.get('data', {}).get('site_analysis', {})
-        seo_analysis = dashboard_data.get('data', {}).get('seo_analysis', {})
-        performance = site_analysis.get('performance', {})
-        security = site_analysis.get('security', {})
+        # استخراج داده‌ها - با fallback برای داده‌های خالی
+        data_dict = dashboard_data.get('data', {})
+        site_analysis = data_dict.get('site_analysis', {}) or {}
+        seo_analysis = data_dict.get('seo_analysis', {}) or {}
+        performance = site_analysis.get('performance', {}) or {}
+        security = site_analysis.get('security', {}) or {}
+        
+        # استخراج پیام خطا اگر وجود دارد
+        error_message = dashboard_data.get('error') or data_dict.get('error')
         
         # محاسبه تغییرات (مقایسه با زمان قبلی)
         current_time = datetime.now()
         created_at = datetime.fromisoformat(dashboard_data.get('created_at', current_time.isoformat()))
         time_since_creation = (current_time - created_at).total_seconds()
+        
+        # بررسی اینکه آیا داده‌های اولیه وجود دارد
+        has_site_data = bool(site_analysis)
+        has_seo_data = bool(seo_analysis)
         
         # مانیتورینگ زنده
         live_data = {
@@ -429,42 +558,44 @@ async def get_live_monitoring(analysis_id: str):
             'timestamp': current_time.isoformat(),
             'status': dashboard_data.get('status', 'unknown'),
             'uptime_seconds': int(time_since_creation),
+            'error': error_message,
+            'has_data': has_site_data or has_seo_data,
             
             # وضعیت فعلی
             'current_status': {
-                'site_accessible': True,  # TODO: Check actual site accessibility
-                'ssl_status': security.get('ssl_enabled', False),
-                'response_time': performance.get('response_time'),
-                'status_code': performance.get('status_code'),
+                'site_accessible': has_site_data,  # اگر داده‌ای وجود دارد، سایت قابل دسترسی است
+                'ssl_status': security.get('ssl_enabled', False) if security else False,
+                'response_time': performance.get('response_time') if performance else None,
+                'status_code': performance.get('status_code') if performance else None,
                 'last_check': current_time.isoformat()
             },
             
             # متریک‌های عملکرد
             'performance_metrics': {
-                'response_time': performance.get('response_time'),
-                'response_time_status': _get_response_time_status(performance.get('response_time')),
-                'content_length': performance.get('content_length'),
-                'status_code': performance.get('status_code'),
+                'response_time': performance.get('response_time') if performance else None,
+                'response_time_status': _get_response_time_status(performance.get('response_time')) if performance else 'unknown',
+                'content_length': performance.get('content_length') if performance else None,
+                'status_code': performance.get('status_code') if performance else None,
                 'server_time': time.time()
             },
             
             # متریک‌های امنیت
             'security_metrics': {
-                'ssl_enabled': security.get('ssl_enabled', False),
+                'ssl_enabled': security.get('ssl_enabled', False) if security else False,
                 'security_headers_count': sum(
                     1 for v in security.get('security_headers', {}).values() if v
-                ),
-                'vulnerabilities_count': len(security.get('vulnerabilities', [])),
-                'security_score': _calculate_security_score(security)
+                ) if security else 0,
+                'vulnerabilities_count': len(security.get('vulnerabilities', [])) if security else 0,
+                'security_score': _calculate_security_score(security) if security else 0
             },
             
             # متریک‌های سئو
             'seo_metrics': {
-                'crawlability': seo_analysis.get('technical', {}).get('crawlability', 'unknown'),
-                'indexability': seo_analysis.get('technical', {}).get('indexability', 'unknown'),
-                'keywords_count': len(seo_analysis.get('content', {}).get('keywords', [])),
-                'readability_score': seo_analysis.get('content', {}).get('readability', 0),
-                'issues_count': len(seo_analysis.get('issues', []))
+                'crawlability': seo_analysis.get('technical', {}).get('crawlability', 'unknown') if seo_analysis else 'unknown',
+                'indexability': seo_analysis.get('technical', {}).get('indexability', 'unknown') if seo_analysis else 'unknown',
+                'keywords_count': len(seo_analysis.get('content', {}).get('keywords', [])) if seo_analysis else 0,
+                'readability_score': seo_analysis.get('content', {}).get('readability', 0) if seo_analysis else 0,
+                'issues_count': len(seo_analysis.get('issues', [])) if seo_analysis else 0
             },
             
             # تغییرات اخیر
@@ -480,7 +611,7 @@ async def get_live_monitoring(analysis_id: str):
             
             # روند تغییرات (برای نمایش در نمودار)
             'trends': {
-                'response_time_history': _generate_response_time_history(performance),
+                'response_time_history': _generate_response_time_history(performance) if performance else [],
                 'status_history': [
                     {
                         'timestamp': created_at.isoformat(),
@@ -510,10 +641,59 @@ async def get_live_monitoring(analysis_id: str):
 
 
 @app.post("/dashboard/{analysis_id}/generate-content")
-async def generate_additional_content(analysis_id: str, content_spec: Dict):
-    """تولید محتوای اضافی"""
-    # TODO: Implement
-    return {"message": "Not implemented yet", "content_spec": content_spec}
+async def generate_additional_content(analysis_id: str, content_spec: Dict = None):
+    """تولید محتوای اضافی یا تولید مجدد محتوا"""
+    try:
+        from core.dashboard_manager import DashboardManager
+        from core.content_generator import ContentGenerator
+        
+        # دریافت داده‌های داشبورد
+        dashboard_manager = DashboardManager()
+        dashboard_data = await dashboard_manager.get_dashboard_data(analysis_id)
+        
+        if not dashboard_data:
+            raise HTTPException(status_code=404, detail="Dashboard not found")
+        
+        # استخراج داده‌های تحلیل
+        site_analysis = dashboard_data.get('data', {}).get('site_analysis', {})
+        seo_analysis = dashboard_data.get('data', {}).get('seo_analysis', {})
+        
+        # اگر داده‌های تحلیل موجود نیست، از داده‌های خالی استفاده کن
+        if not site_analysis:
+            site_analysis = {'url': dashboard_data.get('site_url', '')}
+        if not seo_analysis:
+            seo_analysis = {}
+        
+        # تعیین انواع محتوا
+        content_types = content_spec.get('content_types', ['text', 'image', 'video']) if content_spec else ['text', 'image', 'video']
+        
+        # تولید محتوا
+        generator = ContentGenerator()
+        generated_content = await generator.generate_all(
+            site_analysis,
+            seo_analysis,
+            content_types
+        )
+        
+        # به‌روزرسانی داشبورد
+        await dashboard_manager.update_dashboard(
+            analysis_id,
+            {
+                'generated_content': generated_content
+            }
+        )
+        
+        return {
+            'message': 'محتوای تولید شده با موفقیت',
+            'content': generated_content,
+            'analysis_id': analysis_id
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error generating content: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":

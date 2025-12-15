@@ -529,6 +529,26 @@ export default function RecommendationsPage() {
           </div>
         )}
 
+        {/* Action Buttons */}
+        {recommendations.length > 0 && (
+          <div className="mt-6 bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold mb-2">آماده اعمال پیشنهادات؟</h3>
+                <p className="text-gray-600 text-sm">
+                  می‌توانید پیشنهادات را انتخاب کرده و بر روی سایت اعمال کنید
+                </p>
+              </div>
+              <Link
+                href={`/dashboard/${analysisId}/apply`}
+                className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium"
+              >
+                🚀 اجرای پیشنهادات
+              </Link>
+            </div>
+          </div>
+        )}
+
         {/* Back Link */}
         <div className="mt-6">
           <Link

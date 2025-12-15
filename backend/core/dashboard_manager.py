@@ -3,7 +3,7 @@
 """
 
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -96,10 +96,24 @@ class DashboardManager:
         
         dashboard = DashboardManager._dashboards[analysis_id].copy()
         
-        # استخراج نقاط قوت و ضعف از داده‌های تحلیل
-        strengths, weaknesses = self._extract_strengths_weaknesses(dashboard.get('data', {}))
-        dashboard['strengths'] = strengths
-        dashboard['weaknesses'] = weaknesses
+        try:
+            # استخراج نقاط قوت و ضعف از داده‌های تحلیل
+            strengths, weaknesses = self._extract_strengths_weaknesses(dashboard.get('data', {}))
+            dashboard['strengths'] = strengths
+            dashboard['weaknesses'] = weaknesses
+            
+            # تولید پیشنهادات
+            try:
+                recommendations = self._generate_recommendations(dashboard.get('data', {}), weaknesses)
+                dashboard['recommendations'] = recommendations
+            except Exception as e:
+                logger.error(f"Error generating recommendations: {str(e)}")
+                dashboard['recommendations'] = []
+        except Exception as e:
+            logger.error(f"Error extracting strengths/weaknesses: {str(e)}")
+            dashboard['strengths'] = []
+            dashboard['weaknesses'] = []
+            dashboard['recommendations'] = []
         
         return dashboard
     
@@ -113,11 +127,17 @@ class DashboardManager:
         strengths = []
         weaknesses = []
         
-        site_analysis = data.get('site_analysis', {})
-        seo_analysis = data.get('seo_analysis', {})
+        site_analysis = data.get('site_analysis', {}) or {}
+        seo_analysis = data.get('seo_analysis', {}) or {}
+        
+        # اطمینان از اینکه site_analysis و seo_analysis دیکشنری هستند
+        if not isinstance(site_analysis, dict):
+            site_analysis = {}
+        if not isinstance(seo_analysis, dict):
+            seo_analysis = {}
         
         # تحلیل امنیت
-        security = site_analysis.get('security', {})
+        security = site_analysis.get('security', {}) if isinstance(site_analysis, dict) else {}
         if security.get('ssl_enabled'):
             strengths.append({
                 'title': 'استفاده از HTTPS',
@@ -133,8 +153,8 @@ class DashboardManager:
             })
         
         # تحلیل Sitemap
-        sitemap = site_analysis.get('sitemap', {})
-        if sitemap.get('found'):
+        sitemap = site_analysis.get('sitemap', {}) if isinstance(site_analysis, dict) else {}
+        if isinstance(sitemap, dict) and sitemap.get('found'):
             strengths.append({
                 'title': 'وجود Sitemap',
                 'description': 'سایت دارای فایل Sitemap است که به موتورهای جستجو کمک می‌کند',
@@ -149,8 +169,8 @@ class DashboardManager:
             })
         
         # تحلیل ساختار
-        structure = site_analysis.get('structure', {})
-        headings = structure.get('headings', {})
+        structure = site_analysis.get('structure', {}) if isinstance(site_analysis, dict) else {}
+        headings = structure.get('headings', {}) if isinstance(structure, dict) else {}
         if headings.get('h1', 0) == 1:
             strengths.append({
                 'title': 'ساختار صحیح H1',
@@ -173,8 +193,8 @@ class DashboardManager:
             })
         
         # تحلیل لینک‌ها
-        links = structure.get('links', {})
-        if links.get('internal', 0) > 0:
+        links = structure.get('links', {}) if isinstance(structure, dict) else {}
+        if isinstance(links, dict) and links.get('internal', 0) > 0:
             strengths.append({
                 'title': 'وجود لینک‌های داخلی',
                 'description': f'صفحه دارای {links.get("internal")} لینک داخلی است که به سئو کمک می‌کند',
@@ -182,8 +202,8 @@ class DashboardManager:
             })
         
         # تحلیل عملکرد
-        performance = site_analysis.get('performance', {})
-        response_time = performance.get('response_time')
+        performance = site_analysis.get('performance', {}) if isinstance(site_analysis, dict) else {}
+        response_time = performance.get('response_time') if isinstance(performance, dict) else None
         if response_time and response_time < 2.0:
             strengths.append({
                 'title': 'زمان بارگذاری مناسب',
@@ -199,7 +219,7 @@ class DashboardManager:
             })
         
         # تحلیل CMS
-        cms_type = site_analysis.get('cms_type', 'custom')
+        cms_type = site_analysis.get('cms_type', 'custom') if isinstance(site_analysis, dict) else 'custom'
         if cms_type != 'custom':
             strengths.append({
                 'title': f'استفاده از CMS ({cms_type})',
@@ -209,16 +229,17 @@ class DashboardManager:
         
         # تحلیل Technology Stack
         tech_stack = site_analysis.get('technology_stack', {})
-        if tech_stack.get('analytics'):
+        analytics = tech_stack.get('analytics', []) if isinstance(tech_stack, dict) else []
+        if analytics and isinstance(analytics, list) and len(analytics) > 0:
             strengths.append({
                 'title': 'نصب ابزارهای آنالیتیکس',
-                'description': f'سایت از {", ".join(tech_stack.get("analytics", []))} استفاده می‌کند',
+                'description': f'سایت از {", ".join(str(a) for a in analytics)} استفاده می‌کند',
                 'category': 'فناوری'
             })
         
         # SEO Issues
-        seo_issues = seo_analysis.get('issues', [])
-        if not seo_issues:
+        seo_issues = seo_analysis.get('issues', []) if isinstance(seo_analysis, dict) else []
+        if not seo_issues or not isinstance(seo_issues, list):
             strengths.append({
                 'title': 'عدم وجود مشکل سئو',
                 'description': 'هیچ مشکل سئوی شناسایی شده‌ای وجود ندارد',
@@ -226,12 +247,13 @@ class DashboardManager:
             })
         else:
             for issue in seo_issues:
-                weaknesses.append({
-                    'title': issue.get('title', 'مشکل سئو'),
-                    'description': issue.get('description', ''),
-                    'category': 'سئو',
-                    'priority': issue.get('priority', 'medium')
-                })
+                if isinstance(issue, dict):
+                    weaknesses.append({
+                        'title': issue.get('title', 'مشکل سئو'),
+                        'description': issue.get('description', ''),
+                        'category': 'سئو',
+                        'priority': issue.get('priority', 'medium')
+                    })
         
         # اگر هیچ نقطه قوت یا ضعفی پیدا نشد
         if not strengths:
@@ -250,4 +272,123 @@ class DashboardManager:
             })
         
         return strengths, weaknesses
+    
+    def _generate_recommendations(self, data: Dict[str, Any], weaknesses: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        تولید پیشنهادات بر اساس نقاط ضعف
+        
+        Args:
+            data: داده‌های تحلیل
+            weaknesses: لیست نقاط ضعف
+            
+        Returns:
+            لیست پیشنهادات
+        """
+        recommendations = []
+        
+        # اطمینان از اینکه weaknesses یک لیست است
+        if not isinstance(weaknesses, list):
+            weaknesses = []
+        
+        site_analysis = data.get('site_analysis', {}) or {}
+        seo_analysis = data.get('seo_analysis', {}) or {}
+        
+        # تولید پیشنهادات بر اساس نقاط ضعف
+        for weakness in weaknesses:
+            if not isinstance(weakness, dict):
+                continue
+            title = weakness.get('title', '')
+            category = weakness.get('category', 'عمومی')
+            priority = weakness.get('priority', 'medium')
+            
+            # تولید پیشنهاد بر اساس نوع مشکل
+            if 'HTTPS' in title or 'SSL' in title:
+                recommendations.append({
+                    'id': f'rec_{len(recommendations)}',
+                    'title': 'فعال‌سازی HTTPS',
+                    'description': 'برای امنیت و سئو بهتر، باید HTTPS را فعال کنید. این کار می‌تواند رتبه سایت را بهبود دهد.',
+                    'category': 'امنیت',
+                    'priority': 'high',
+                    'impact': 'تأثیر بالا بر امنیت و سئو',
+                    'estimatedTime': '1-2 ساعت',
+                    'automated': False
+                })
+            elif 'Sitemap' in title:
+                recommendations.append({
+                    'id': f'rec_{len(recommendations)}',
+                    'title': 'ایجاد Sitemap',
+                    'description': 'ایجاد فایل Sitemap.xml به موتورهای جستجو کمک می‌کند تا صفحات سایت را بهتر ایندکس کنند.',
+                    'category': 'سئو',
+                    'priority': 'medium',
+                    'impact': 'بهبود ایندکس شدن صفحات',
+                    'estimatedTime': '30 دقیقه',
+                    'automated': True
+                })
+            elif 'H1' in title:
+                recommendations.append({
+                    'id': f'rec_{len(recommendations)}',
+                    'title': 'بهبود ساختار H1',
+                    'description': 'هر صفحه باید دقیقاً یک تگ H1 داشته باشد که موضوع اصلی صفحه را توصیف کند.',
+                    'category': 'ساختار',
+                    'priority': 'high',
+                    'impact': 'بهبود سئو و خوانایی',
+                    'estimatedTime': '15-30 دقیقه',
+                    'automated': False
+                })
+            elif 'زمان بارگذاری' in title or 'عملکرد' in title:
+                recommendations.append({
+                    'id': f'rec_{len(recommendations)}',
+                    'title': 'بهینه‌سازی سرعت سایت',
+                    'description': 'بهینه‌سازی تصاویر، استفاده از CDN و فشرده‌سازی فایل‌ها می‌تواند سرعت سایت را بهبود دهد.',
+                    'category': 'عملکرد',
+                    'priority': 'medium',
+                    'impact': 'بهبود تجربه کاربری و سئو',
+                    'estimatedTime': '2-4 ساعت',
+                    'automated': True
+                })
+            else:
+                # پیشنهاد عمومی
+                recommendations.append({
+                    'id': f'rec_{len(recommendations)}',
+                    'title': f'بهبود {title}',
+                    'description': weakness.get('description', 'این مشکل باید برطرف شود تا سئو سایت بهبود یابد.'),
+                    'category': category,
+                    'priority': priority,
+                    'impact': 'بهبود سئو و عملکرد سایت',
+                    'estimatedTime': '1-2 ساعت',
+                    'automated': False
+                })
+        
+        # پیشنهادات اضافی بر اساس تحلیل سئو
+        seo_issues = seo_analysis.get('issues', [])
+        if isinstance(seo_issues, list):
+            for issue in seo_issues:
+                if not isinstance(issue, dict):
+                    continue
+                if not any(rec.get('title') == issue.get('title') for rec in recommendations):
+                    recommendations.append({
+                        'id': f'rec_{len(recommendations)}',
+                        'title': issue.get('title', 'بهبود سئو'),
+                        'description': issue.get('description', 'این مشکل سئو باید برطرف شود.'),
+                        'category': 'سئو',
+                        'priority': issue.get('priority', 'medium'),
+                        'impact': 'بهبود رتبه در موتورهای جستجو',
+                        'estimatedTime': '1 ساعت',
+                        'automated': issue.get('automated', False)
+                    })
+        
+        # اگر هیچ پیشنهادی تولید نشد
+        if not recommendations:
+            recommendations.append({
+                'id': 'rec_0',
+                'title': 'تحلیل در حال انجام است',
+                'description': 'پس از تکمیل تحلیل، پیشنهادات در اینجا نمایش داده می‌شوند.',
+                'category': 'وضعیت',
+                'priority': 'low',
+                'impact': 'در انتظار تحلیل',
+                'estimatedTime': 'N/A',
+                'automated': False
+            })
+        
+        return recommendations
 

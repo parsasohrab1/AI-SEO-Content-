@@ -198,6 +198,12 @@ export default function DashboardPage() {
               >
                 محتوای تولید شده
               </Link>
+              <Link
+                href={`/dashboard/${analysisId}/apply`}
+                className="px-6 py-4 text-gray-600 hover:text-blue-600 hover:border-b-2 hover:border-blue-600"
+              >
+                اجرای پیشنهادات
+              </Link>
             </nav>
           </div>
         </div>
@@ -627,17 +633,31 @@ export default function DashboardPage() {
                             <h1>📈 مانیتورینگ زنده</h1>
                             
                             ${monitoring.error ? `
-                              <div class="alert alert-error">
-                                <h2>خطا</h2>
-                                <p>${monitoring.error}</p>
+                              <div class="alert alert-error" style="margin-bottom: 20px;">
+                                <h2 style="margin-top: 0;">⚠️ خطا در تحلیل</h2>
+                                <p><strong>پیام خطا:</strong> ${monitoring.error}</p>
+                                <p style="font-size: 12px; margin-top: 10px; color: #6b7280;">
+                                  اگر این خطا ادامه دارد، لطفاً یک تحلیل جدید ایجاد کنید یا با پشتیبانی تماس بگیرید.
+                                </p>
                               </div>
-                            ` : `
+                            ` : ''}
+                            
+                            ${(!monitoring.has_data && monitoring.status === 'failed') ? `
+                              <div class="alert alert-warning" style="margin-bottom: 20px;">
+                                <h2 style="margin-top: 0;">⚠️ داده‌های تحلیل موجود نیست</h2>
+                                <p>تحلیل با خطا مواجه شده و داده‌های کافی برای نمایش جمع‌آوری نشده است.</p>
+                                <p style="font-size: 12px; margin-top: 10px; color: #6b7280;">
+                                  لطفاً یک تحلیل جدید ایجاد کنید.
+                                </p>
+                              </div>
+                            ` : ''}
                             
                             <div style="margin: 20px 0;">
                               <span class="status-badge status-${monitoring.status === 'completed' ? 'good' : monitoring.status === 'processing' ? 'warning' : 'error'}">
                                 وضعیت: ${monitoring.status === 'completed' ? 'تکمیل شده' : monitoring.status === 'processing' ? 'در حال پردازش' : 'خطا'}
                               </span>
                               <span class="timestamp">آخرین به‌روزرسانی: ${new Date(monitoring.timestamp).toLocaleString('fa-IR')}</span>
+                              ${monitoring.has_data ? '<span class="status-badge status-info" style="margin-right: 10px;">✓ داده‌ها موجود است</span>' : '<span class="status-badge status-warning" style="margin-right: 10px;">⚠ داده‌ها ناقص است</span>'}
                             </div>
                             
                             ${monitoring.current_status ? `
@@ -726,8 +746,6 @@ export default function DashboardPage() {
                               <p class="timestamp">شناسه تحلیل: ${monitoring.analysis_id}</p>
                               <p class="timestamp">Uptime: ${Math.floor(monitoring.uptime_seconds / 60)} دقیقه و ${monitoring.uptime_seconds % 60} ثانیه</p>
                             </div>
-                            
-                            `}
                           </div>
                         </body>
                         </html>
