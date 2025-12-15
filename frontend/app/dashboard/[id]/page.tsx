@@ -192,6 +192,12 @@ export default function DashboardPage() {
               >
                 مانیتورینگ سئو
               </Link>
+              <Link
+                href={`/dashboard/${analysisId}/content`}
+                className="px-6 py-4 text-gray-600 hover:text-blue-600 hover:border-b-2 hover:border-blue-600"
+              >
+                محتوای تولید شده
+              </Link>
             </nav>
           </div>
         </div>
@@ -284,15 +290,12 @@ export default function DashboardPage() {
                     <p className="font-medium">{data.data.generated_content.total_words.toLocaleString()} کلمه</p>
                   </div>
                 )}
-                <button
-                  onClick={() => {
-                    // TODO: Navigate to content page
-                    alert('صفحه محتوای تولید شده در حال توسعه است')
-                  }}
-                  className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                <Link
+                  href={`/dashboard/${analysisId}/content`}
+                  className="mt-4 inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                 >
                   مشاهده جزئیات محتوا
-                </button>
+                </Link>
               </div>
             </div>
           )}
