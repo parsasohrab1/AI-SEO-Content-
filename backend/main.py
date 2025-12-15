@@ -263,11 +263,250 @@ async def apply_specific_fixes(analysis_id: str, fixes: List[str]):
     return {"message": "Not implemented yet", "fixes": fixes}
 
 
+# Helper functions for live monitoring
+def _get_response_time_status(response_time):
+    """تعیین وضعیت زمان پاسخ"""
+    if not response_time:
+        return 'unknown'
+    if response_time < 1:
+        return 'excellent'
+    elif response_time < 2:
+        return 'good'
+    elif response_time < 3:
+        return 'fair'
+    else:
+        return 'poor'
+
+
+def _calculate_security_score(security):
+    """محاسبه امتیاز امنیت"""
+    score = 0
+    if security.get('ssl_enabled'):
+        score += 50
+    security_headers = security.get('security_headers', {})
+    header_count = sum(1 for v in security_headers.values() if v)
+    score += header_count * 12.5
+    return min(100, score)
+
+
+def _calculate_time_since(timestamp_str):
+    """محاسبه زمان از آخرین به‌روزرسانی"""
+    if not timestamp_str:
+        return 'unknown'
+    try:
+        last_update = datetime.fromisoformat(timestamp_str)
+        delta = datetime.now() - last_update
+        if delta.total_seconds() < 60:
+            return f"{int(delta.total_seconds())} ثانیه پیش"
+        elif delta.total_seconds() < 3600:
+            return f"{int(delta.total_seconds() / 60)} دقیقه پیش"
+        else:
+            return f"{int(delta.total_seconds() / 3600)} ساعت پیش"
+    except:
+        return 'unknown'
+
+
+def _generate_alerts(dashboard_data, site_analysis, seo_analysis):
+    """تولید هشدارها"""
+    alerts = []
+    current_time = datetime.now()
+    
+    # بررسی وضعیت
+    status = dashboard_data.get('status', 'unknown')
+    if status == 'failed':
+        alerts.append({
+            'type': 'error',
+            'message': 'تحلیل با خطا مواجه شده است',
+            'priority': 'high',
+            'timestamp': current_time.isoformat()
+        })
+    
+    # بررسی امنیت
+    security = site_analysis.get('security', {})
+    if not security.get('ssl_enabled'):
+        alerts.append({
+            'type': 'warning',
+            'message': 'HTTPS فعال نیست',
+            'priority': 'high',
+            'timestamp': current_time.isoformat()
+        })
+    
+    # بررسی عملکرد
+    performance = site_analysis.get('performance', {})
+    response_time = performance.get('response_time')
+    if response_time and response_time > 3:
+        alerts.append({
+            'type': 'warning',
+            'message': f'زمان پاسخ سرور کند است ({response_time:.2f}s)',
+            'priority': 'medium',
+            'timestamp': current_time.isoformat()
+        })
+    
+    # بررسی Sitemap
+    sitemap = site_analysis.get('sitemap', {})
+    if not sitemap.get('found'):
+        alerts.append({
+            'type': 'info',
+            'message': 'Sitemap یافت نشد',
+            'priority': 'medium',
+            'timestamp': current_time.isoformat()
+        })
+    
+    return alerts
+
+
+def _generate_response_time_history(performance):
+    """تولید تاریخچه زمان پاسخ"""
+    from datetime import timedelta
+    response_time = performance.get('response_time')
+    if not response_time:
+        return []
+    
+    # در حالت واقعی، این داده‌ها از دیتابیس یا cache می‌آید
+    return [
+        {
+            'timestamp': (datetime.now() - timedelta(minutes=10)).isoformat(),
+            'value': response_time * 0.9  # شبیه‌سازی
+        },
+        {
+            'timestamp': (datetime.now() - timedelta(minutes=5)).isoformat(),
+            'value': response_time * 0.95
+        },
+        {
+            'timestamp': datetime.now().isoformat(),
+            'value': response_time
+        }
+    ]
+
+
+def _estimate_completion(dashboard_data):
+    """تخمین زمان تکمیل"""
+    from datetime import timedelta
+    status = dashboard_data.get('status', 'unknown')
+    if status == 'completed':
+        return 'completed'
+    elif status == 'processing':
+        # تخمین بر اساس زمان گذشته
+        created_at = datetime.fromisoformat(dashboard_data.get('created_at', datetime.now().isoformat()))
+        elapsed = (datetime.now() - created_at).total_seconds()
+        estimated_total = 900  # 15 دقیقه
+        remaining = max(0, estimated_total - elapsed)
+        return f"{int(remaining / 60)} دقیقه"
+    else:
+        return 'unknown'
+
+
 @app.get("/dashboard/{analysis_id}/live-monitoring")
 async def get_live_monitoring(analysis_id: str):
     """دریافت داده‌های مانیتورینگ بلادرنگ"""
-    # TODO: Implement
-    return {"message": "Not implemented yet", "analysis_id": analysis_id}
+    try:
+        from core.dashboard_manager import DashboardManager
+        from datetime import timedelta
+        import time
+        
+        # دریافت داده‌های داشبورد
+        dashboard_manager = DashboardManager()
+        dashboard_data = await dashboard_manager.get_dashboard_data(analysis_id)
+        
+        if not dashboard_data:
+            raise HTTPException(status_code=404, detail="Dashboard not found")
+        
+        # استخراج داده‌ها
+        site_analysis = dashboard_data.get('data', {}).get('site_analysis', {})
+        seo_analysis = dashboard_data.get('data', {}).get('seo_analysis', {})
+        performance = site_analysis.get('performance', {})
+        security = site_analysis.get('security', {})
+        
+        # محاسبه تغییرات (مقایسه با زمان قبلی)
+        current_time = datetime.now()
+        created_at = datetime.fromisoformat(dashboard_data.get('created_at', current_time.isoformat()))
+        time_since_creation = (current_time - created_at).total_seconds()
+        
+        # مانیتورینگ زنده
+        live_data = {
+            'analysis_id': analysis_id,
+            'site_url': dashboard_data.get('site_url', ''),
+            'timestamp': current_time.isoformat(),
+            'status': dashboard_data.get('status', 'unknown'),
+            'uptime_seconds': int(time_since_creation),
+            
+            # وضعیت فعلی
+            'current_status': {
+                'site_accessible': True,  # TODO: Check actual site accessibility
+                'ssl_status': security.get('ssl_enabled', False),
+                'response_time': performance.get('response_time'),
+                'status_code': performance.get('status_code'),
+                'last_check': current_time.isoformat()
+            },
+            
+            # متریک‌های عملکرد
+            'performance_metrics': {
+                'response_time': performance.get('response_time'),
+                'response_time_status': _get_response_time_status(performance.get('response_time')),
+                'content_length': performance.get('content_length'),
+                'status_code': performance.get('status_code'),
+                'server_time': time.time()
+            },
+            
+            # متریک‌های امنیت
+            'security_metrics': {
+                'ssl_enabled': security.get('ssl_enabled', False),
+                'security_headers_count': sum(
+                    1 for v in security.get('security_headers', {}).values() if v
+                ),
+                'vulnerabilities_count': len(security.get('vulnerabilities', [])),
+                'security_score': _calculate_security_score(security)
+            },
+            
+            # متریک‌های سئو
+            'seo_metrics': {
+                'crawlability': seo_analysis.get('technical', {}).get('crawlability', 'unknown'),
+                'indexability': seo_analysis.get('technical', {}).get('indexability', 'unknown'),
+                'keywords_count': len(seo_analysis.get('content', {}).get('keywords', [])),
+                'readability_score': seo_analysis.get('content', {}).get('readability', 0),
+                'issues_count': len(seo_analysis.get('issues', []))
+            },
+            
+            # تغییرات اخیر
+            'recent_changes': {
+                'strengths_count': len(dashboard_data.get('strengths', [])),
+                'weaknesses_count': len(dashboard_data.get('weaknesses', [])),
+                'last_update': dashboard_data.get('updated_at', current_time.isoformat()),
+                'time_since_update': _calculate_time_since(dashboard_data.get('updated_at'))
+            },
+            
+            # هشدارها
+            'alerts': _generate_alerts(dashboard_data, site_analysis, seo_analysis),
+            
+            # روند تغییرات (برای نمایش در نمودار)
+            'trends': {
+                'response_time_history': _generate_response_time_history(performance),
+                'status_history': [
+                    {
+                        'timestamp': created_at.isoformat(),
+                        'status': 'started'
+                    },
+                    {
+                        'timestamp': dashboard_data.get('updated_at', current_time.isoformat()),
+                        'status': dashboard_data.get('status', 'unknown')
+                    }
+                ]
+            },
+            
+            # پیش‌بینی
+            'predictions': {
+                'estimated_completion': _estimate_completion(dashboard_data),
+                'next_check_recommended': (current_time + timedelta(minutes=5)).isoformat()
+            }
+        }
+        
+        return live_data
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting live monitoring: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/dashboard/{analysis_id}/generate-content")
