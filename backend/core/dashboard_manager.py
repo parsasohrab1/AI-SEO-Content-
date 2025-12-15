@@ -297,12 +297,12 @@ class DashboardManager:
         for weakness in weaknesses:
             if not isinstance(weakness, dict):
                 continue
-            title = weakness.get('title', '')
-            category = weakness.get('category', 'عمومی')
-            priority = weakness.get('priority', 'medium')
+            title = str(weakness.get('title', ''))
+            category = str(weakness.get('category', 'عمومی'))
+            priority = str(weakness.get('priority', 'medium'))
             
             # تولید پیشنهاد بر اساس نوع مشکل
-            if 'HTTPS' in title or 'SSL' in title:
+            if title and ('HTTPS' in title or 'SSL' in title):
                 recommendations.append({
                     'id': f'rec_{len(recommendations)}',
                     'title': 'فعال‌سازی HTTPS',
@@ -313,7 +313,7 @@ class DashboardManager:
                     'estimatedTime': '1-2 ساعت',
                     'automated': False
                 })
-            elif 'Sitemap' in title:
+            elif title and 'Sitemap' in title:
                 recommendations.append({
                     'id': f'rec_{len(recommendations)}',
                     'title': 'ایجاد Sitemap',
@@ -324,7 +324,7 @@ class DashboardManager:
                     'estimatedTime': '30 دقیقه',
                     'automated': True
                 })
-            elif 'H1' in title:
+            elif title and 'H1' in title:
                 recommendations.append({
                     'id': f'rec_{len(recommendations)}',
                     'title': 'بهبود ساختار H1',
@@ -335,7 +335,7 @@ class DashboardManager:
                     'estimatedTime': '15-30 دقیقه',
                     'automated': False
                 })
-            elif 'زمان بارگذاری' in title or 'عملکرد' in title:
+            elif title and ('زمان بارگذاری' in title or 'عملکرد' in title):
                 recommendations.append({
                     'id': f'rec_{len(recommendations)}',
                     'title': 'بهینه‌سازی سرعت سایت',
