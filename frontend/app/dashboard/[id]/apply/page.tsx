@@ -64,6 +64,19 @@ export default function ApplyPage() {
         const recs = dashboardData.recommendations || []
         setRecommendations(recs)
         
+        // استخراج fixes اعمال شده
+        const appliedFixesData = dashboardData.applied_fixes || []
+        if (appliedFixesData.length > 0) {
+          const fixesList: AppliedFix[] = appliedFixesData.map((fix: any) => ({
+            recommendation_id: fix.recommendation_id || fix.id || '',
+            title: fix.title || '',
+            status: fix.status === 'success' ? 'applied' : 
+                   fix.status === 'pending' ? 'pending' : 'failed',
+            message: fix.message
+          }))
+          setAppliedFixes(fixesList)
+        }
+        
         // Stop polling if analysis is completed or failed
         if (dashboardData.status === 'completed' || dashboardData.status === 'failed') {
           shouldPollRef.current = false
@@ -174,10 +187,35 @@ export default function ApplyPage() {
 
       setAppliedFixes(fixesList)
       
-      // Refresh data
-      setTimeout(() => {
-        window.location.reload()
-      }, 2000)
+      // Clear selected recommendations
+      setSelectedRecommendations([])
+      
+      // Refresh data after a short delay
+      setTimeout(async () => {
+        try {
+          const refreshResponse = await fetch(`http://localhost:8002/dashboard/${analysisId}`)
+          if (refreshResponse.ok) {
+            const refreshData = await refreshResponse.json()
+            const recs = refreshData.recommendations || []
+            setRecommendations(recs)
+            
+            // Update applied fixes from dashboard
+            const appliedFixesData = refreshData.applied_fixes || []
+            if (appliedFixesData.length > 0) {
+              const fixesList: AppliedFix[] = appliedFixesData.map((fix: any) => ({
+                recommendation_id: fix.recommendation_id || fix.id || '',
+                title: fix.title || '',
+                status: fix.status === 'success' ? 'applied' : 
+                       fix.status === 'pending' ? 'pending' : 'failed',
+                message: fix.message
+              }))
+              setAppliedFixes(fixesList)
+            }
+          }
+        } catch (err) {
+          console.error('Error refreshing data:', err)
+        }
+      }, 1000)
 
     } catch (err) {
       alert('خطا در اعمال پیشنهادات: ' + (err instanceof Error ? err.message : 'خطای نامشخص'))

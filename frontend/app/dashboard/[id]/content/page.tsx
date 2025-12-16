@@ -14,6 +14,10 @@ interface ContentItem {
   status?: string
   created_at?: string
   seo_score?: number
+  file_path?: string
+  file_type?: string
+  duration?: string
+  description?: string
 }
 
 export default function ContentPage() {
@@ -454,7 +458,80 @@ export default function ContentPage() {
                   )}
                 </div>
 
-                {selectedContent.content && (
+                {/* نمایش ویدیو */}
+                {selectedContent.type === 'video' && (
+                  <div className="mb-6">
+                    <h3 className="text-lg font-semibold mb-3">ویدیو</h3>
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      {selectedContent.file_path ? (
+                        <video
+                          controls
+                          className="w-full rounded-lg bg-black"
+                          style={{ maxHeight: '500px' }}
+                          onError={(e) => {
+                            // اگر ویدیو لود نشد، placeholder نمایش بده
+                            const videoElement = e.currentTarget
+                            videoElement.style.display = 'none'
+                            const placeholder = videoElement.parentElement?.querySelector('.video-placeholder')
+                            if (placeholder) {
+                              (placeholder as HTMLElement).style.display = 'block'
+                            }
+                          }}
+                        >
+                          <source
+                            src={`http://localhost:8002/dashboard/${analysisId}/content/${selectedContent.id}/download`}
+                            type="video/mp4"
+                          />
+                          مرورگر شما از پخش ویدیو پشتیبانی نمی‌کند.
+                        </video>
+                      ) : null}
+                      <div className="video-placeholder bg-gray-200 rounded-lg p-8 text-center" style={{ display: selectedContent.file_path ? 'none' : 'block' }}>
+                        <div className="mb-4">
+                          <svg className="mx-auto h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                        </div>
+                        <p className="text-gray-600 font-medium mb-2">ویدیو آموزشی</p>
+                        <p className="text-gray-500 text-sm">
+                          {selectedContent.description || 'ویدیو در حال تولید است. فایل ویدیو به زودی آماده خواهد شد.'}
+                        </p>
+                        {selectedContent.duration && (
+                          <p className="text-gray-500 mt-2 text-xs">
+                            مدت زمان: {selectedContent.duration}
+                          </p>
+                        )}
+                      </div>
+                      {selectedContent.description && selectedContent.file_path && (
+                        <p className="text-gray-600 mt-4 text-sm">
+                          {selectedContent.description}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* نمایش تصویر */}
+                {selectedContent.type === 'image' && selectedContent.file_path && (
+                  <div className="mb-6">
+                    <h3 className="text-lg font-semibold mb-3">تصویر</h3>
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <img
+                        src={`http://localhost:8002/dashboard/${analysisId}/content/${selectedContent.id}/download`}
+                        alt={selectedContent.title || 'تصویر'}
+                        className="w-full rounded-lg"
+                        style={{ maxHeight: '500px', objectFit: 'contain' }}
+                      />
+                      {selectedContent.description && (
+                        <p className="text-gray-600 mt-4 text-sm">
+                          {selectedContent.description}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* نمایش محتوای متنی */}
+                {selectedContent.content && selectedContent.type === 'text' && (
                   <div className="mb-6">
                     <h3 className="text-lg font-semibold mb-3">محتوا</h3>
                     <div className="bg-gray-50 p-4 rounded-lg">
@@ -510,20 +587,32 @@ export default function ContentPage() {
                   >
                     📋 کپی محتوا
                   </button>
-                  <button
-                    onClick={() => {
-                      const blob = new Blob([selectedContent.content || ''], { type: 'text/plain' })
-                      const url = URL.createObjectURL(blob)
-                      const a = document.createElement('a')
-                      a.href = url
-                      a.download = `${selectedContent.title || 'content'}.txt`
-                      a.click()
-                      URL.revokeObjectURL(url)
-                    }}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-                  >
-                    💾 دانلود
-                  </button>
+                  {selectedContent.file_path ? (
+                    <a
+                      href={`http://localhost:8002/dashboard/${analysisId}/content/${selectedContent.id}/download`}
+                      download
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 inline-block text-center"
+                    >
+                      💾 دانلود فایل ({selectedContent.file_type?.toUpperCase() || 'FILE'})
+                    </a>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        const blob = new Blob([selectedContent.content || ''], { type: 'text/plain' })
+                        const url = URL.createObjectURL(blob)
+                        const a = document.createElement('a')
+                        a.href = url
+                        const extension = selectedContent.type === 'text' ? 'txt' : 
+                                        selectedContent.type === 'image' ? 'jpg' : 'mp4'
+                        a.download = `${selectedContent.title || 'content'}.${extension}`
+                        a.click()
+                        URL.revokeObjectURL(url)
+                      }}
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                    >
+                      💾 دانلود
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

@@ -74,7 +74,20 @@ class DashboardManager:
             logger.warning(f"Dashboard not found: {analysis_id}")
             return
         
-        DashboardManager._dashboards[analysis_id]['data'].update(data)
+        # جدا کردن فیلدهای سطح dashboard از فیلدهای data
+        dashboard_level_fields = ['applied_fixes', 'last_applied_at', 'status']
+        data_level_fields = {}
+        
+        for key, value in data.items():
+            if key in dashboard_level_fields:
+                DashboardManager._dashboards[analysis_id][key] = value
+            else:
+                data_level_fields[key] = value
+        
+        # به‌روزرسانی data
+        if data_level_fields:
+            DashboardManager._dashboards[analysis_id]['data'].update(data_level_fields)
+        
         DashboardManager._dashboards[analysis_id]['updated_at'] = datetime.now().isoformat()
         
         if 'status' in data:
@@ -109,6 +122,11 @@ class DashboardManager:
             except Exception as e:
                 logger.error(f"Error generating recommendations: {str(e)}")
                 dashboard['recommendations'] = []
+            
+            # اضافه کردن applied_fixes به dashboard (اگر وجود دارد)
+            if 'applied_fixes' not in dashboard and 'applied_fixes' in dashboard.get('data', {}):
+                # applied_fixes در data است، آن را به سطح dashboard منتقل می‌کنیم
+                dashboard['applied_fixes'] = dashboard['data']['applied_fixes']
         except Exception as e:
             logger.error(f"Error extracting strengths/weaknesses: {str(e)}")
             dashboard['strengths'] = []

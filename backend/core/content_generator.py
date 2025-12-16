@@ -274,13 +274,28 @@ class ContentGenerator:
             files_dir.mkdir(exist_ok=True)
             
             # در حالت واقعی، اینجا ویدیو واقعی تولید می‌شود
-            # برای حال حاضر، یک فایل placeholder ایجاد می‌کنیم
+            # برای حال حاضر، یک فایل placeholder با header معتبر MP4 ایجاد می‌کنیم
             file_path = files_dir / f"{file_id}.mp4"
             
-            # ایجاد یک فایل placeholder (در حالت واقعی، ویدیو واقعی تولید می‌شود)
+            # ایجاد یک فایل MP4 minimal با header معتبر
+            # این یک placeholder است - در حالت واقعی از ffmpeg یا کتابخانه‌های دیگر استفاده می‌شود
+            # فایل MP4 minimal شامل:
+            # - ftyp box (file type)
+            # - mdat box (media data - خالی)
+            mp4_minimal = (
+                # ftyp box (20 bytes)
+                b'\x00\x00\x00\x14'  # box size (20)
+                b'ftyp'              # box type
+                b'mp41'              # major brand
+                b'\x00\x00\x00\x00'  # minor version
+                b'mp41'              # compatible brand
+                # mdat box (8 bytes - empty)
+                b'\x00\x00\x00\x08'  # box size (8)
+                b'mdat'              # box type
+            )
+            
             with open(file_path, 'wb') as f:
-                # این یک placeholder است - در حالت واقعی از ffmpeg یا کتابخانه‌های دیگر استفاده می‌شود
-                f.write(b'')  # فایل خالی برای placeholder
+                f.write(mp4_minimal)
             
             logger.info(f"Video file placeholder created: {file_path}")
             return str(file_path)
