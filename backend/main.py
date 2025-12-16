@@ -640,6 +640,62 @@ async def get_live_monitoring(analysis_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/dashboard/{analysis_id}/content/{content_id}/download")
+async def download_content_file(analysis_id: str, content_id: str):
+    """دانلود فایل محتوا"""
+    try:
+        from core.dashboard_manager import DashboardManager
+        from fastapi.responses import FileResponse
+        import os
+        from pathlib import Path
+        
+        # دریافت داده‌های داشبورد
+        dashboard_manager = DashboardManager()
+        dashboard_data = await dashboard_manager.get_dashboard_data(analysis_id)
+        
+        if not dashboard_data:
+            raise HTTPException(status_code=404, detail="Dashboard not found")
+        
+        # پیدا کردن محتوا
+        generated_content = dashboard_data.get('data', {}).get('generated_content', {})
+        content_items = generated_content.get('content_items', [])
+        
+        content_item = None
+        for item in content_items:
+            if item.get('id') == content_id:
+                content_item = item
+                break
+        
+        if not content_item:
+            raise HTTPException(status_code=404, detail="Content not found")
+        
+        file_path = content_item.get('file_path')
+        if not file_path or not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail="File not found")
+        
+        # تعیین نوع فایل
+        file_type = content_item.get('file_type', 'txt')
+        media_type_map = {
+            'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'jpg': 'image/jpeg',
+            'mp4': 'video/mp4',
+            'txt': 'text/plain'
+        }
+        media_type = media_type_map.get(file_type, 'application/octet-stream')
+        
+        return FileResponse(
+            file_path,
+            media_type=media_type,
+            filename=os.path.basename(file_path)
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error downloading content file: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/dashboard/{analysis_id}/generate-content")
 async def generate_additional_content(analysis_id: str, content_spec: Dict = None):
     """تولید محتوای اضافی یا تولید مجدد محتوا"""
