@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 
@@ -33,13 +33,12 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const intervalRef = useRef<NodeJS.Timeout | null>(null)
+  const shouldPollRef = useRef<boolean>(true)
 
   useEffect(() => {
-    let intervalId: NodeJS.Timeout | null = null
-    let shouldPoll = true
-    
     const fetchDashboard = async () => {
-      if (!shouldPoll) {
+      if (!shouldPollRef.current) {
         return
       }
       
@@ -49,10 +48,10 @@ export default function DashboardPage() {
           if (response.status === 404) {
             setError('Dashboard یافت نشد. احتمالاً بک‌اند restart شده و داده‌ها از بین رفته است. لطفاً یک تحلیل جدید ایجاد کنید.')
             setLoading(false)
-            shouldPoll = false
-            if (intervalId) {
-              clearInterval(intervalId)
-              intervalId = null
+            shouldPollRef.current = false
+            if (intervalRef.current) {
+              clearInterval(intervalRef.current)
+              intervalRef.current = null
             }
             return
           }
@@ -65,10 +64,10 @@ export default function DashboardPage() {
         // Stop polling if analysis is completed AND data is ready, or if failed
         const hasData = dashboardData.data?.site_analysis || dashboardData.data?.seo_analysis
         if ((dashboardData.status === 'completed' && hasData) || dashboardData.status === 'failed') {
-          shouldPoll = false
-          if (intervalId) {
-            clearInterval(intervalId)
-            intervalId = null
+          shouldPollRef.current = false
+          if (intervalRef.current) {
+            clearInterval(intervalRef.current)
+            intervalRef.current = null
           }
         }
       } catch (err) {
@@ -79,10 +78,10 @@ export default function DashboardPage() {
         }
         // Don't stop polling on network errors, only on 404
         if (err instanceof Error && err.message.includes('404')) {
-          shouldPoll = false
-          if (intervalId) {
-            clearInterval(intervalId)
-            intervalId = null
+          shouldPollRef.current = false
+          if (intervalRef.current) {
+            clearInterval(intervalRef.current)
+            intervalRef.current = null
           }
         }
       } finally {
@@ -91,23 +90,25 @@ export default function DashboardPage() {
     }
 
     if (analysisId) {
+      shouldPollRef.current = true
       fetchDashboard()
       // Poll for updates every 5 seconds until data is ready
-      intervalId = setInterval(() => {
-        if (shouldPoll) {
+      intervalRef.current = setInterval(() => {
+        if (shouldPollRef.current) {
           fetchDashboard()
         } else {
-          if (intervalId) {
-            clearInterval(intervalId)
-            intervalId = null
+          if (intervalRef.current) {
+            clearInterval(intervalRef.current)
+            intervalRef.current = null
           }
         }
       }, 5000)
       
       return () => {
-        shouldPoll = false
-        if (intervalId) {
-          clearInterval(intervalId)
+        shouldPollRef.current = false
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current)
+          intervalRef.current = null
         }
       }
     }
