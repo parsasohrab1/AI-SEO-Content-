@@ -3,9 +3,11 @@
 """
 
 import logging
+import os
 from typing import Dict, Any, List
 from datetime import datetime
 import random
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +101,13 @@ class ContentGenerator:
             content = self._generate_article_content(title, article_keywords, site_analysis)
             word_count = len(content.split())
             
+            # ایجاد فایل Word برای متن
+            file_path = await self._save_text_file(
+                f'content_{datetime.now().strftime("%Y%m%d_%H%M%S")}_{i}',
+                title,
+                content
+            )
+            
             items.append({
                 'id': f'content_{datetime.now().strftime("%Y%m%d_%H%M%S")}_{i}',
                 'type': 'text',
@@ -108,7 +117,9 @@ class ContentGenerator:
                 'keywords': article_keywords,
                 'status': 'generated',
                 'seo_score': random.randint(70, 95),
-                'created_at': datetime.now().isoformat()
+                'created_at': datetime.now().isoformat(),
+                'file_path': file_path,
+                'file_type': 'docx'
             })
         
         return items
@@ -120,6 +131,13 @@ class ContentGenerator:
         num_images = random.randint(2, 4)
         for i in range(num_images):
             keyword = keywords[i % len(keywords)] if keywords else 'سئو'
+            
+            # ایجاد فایل تصویری JPG
+            file_path = await self._save_image_file(
+                f'image_{datetime.now().strftime("%Y%m%d_%H%M%S")}_{i}',
+                keyword
+            )
+            
             items.append({
                 'id': f'image_{datetime.now().strftime("%Y%m%d_%H%M%S")}_{i}',
                 'type': 'image',
@@ -127,7 +145,9 @@ class ContentGenerator:
                 'description': f'تصویر بهینه شده برای {keyword}',
                 'keywords': [keyword],
                 'status': 'generated',
-                'created_at': datetime.now().isoformat()
+                'created_at': datetime.now().isoformat(),
+                'file_path': file_path,
+                'file_type': 'jpg'
             })
         
         return items
@@ -139,6 +159,13 @@ class ContentGenerator:
         num_videos = random.randint(1, 2)
         for i in range(num_videos):
             keyword = keywords[i % len(keywords)] if keywords else 'سئو'
+            
+            # ایجاد فایل ویدیویی MP4
+            file_path = await self._save_video_file(
+                f'video_{datetime.now().strftime("%Y%m%d_%H%M%S")}_{i}',
+                keyword
+            )
+            
             items.append({
                 'id': f'video_{datetime.now().strftime("%Y%m%d_%H%M%S")}_{i}',
                 'type': 'video',
@@ -147,7 +174,9 @@ class ContentGenerator:
                 'keywords': [keyword],
                 'status': 'generated',
                 'duration': f'{random.randint(3, 10)} دقیقه',
-                'created_at': datetime.now().isoformat()
+                'created_at': datetime.now().isoformat(),
+                'file_path': file_path,
+                'file_type': 'mp4'
             })
         
         return items

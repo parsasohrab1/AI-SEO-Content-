@@ -11,6 +11,7 @@ export default function Home() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
+    setResult(null)
     
     try {
       const response = await fetch('http://localhost:8002/analyze-site', {
@@ -26,11 +27,23 @@ export default function Home() {
         }),
       })
       
+      if (!response.ok) {
+        let errorMessage = 'خطا در ارتباط با سرور'
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.detail || errorData.message || `خطا: ${response.status} ${response.statusText}`
+        } catch {
+          errorMessage = `خطا: ${response.status} ${response.statusText}`
+        }
+        setResult({ error: errorMessage })
+        return
+      }
+      
       const data = await response.json()
       setResult(data)
     } catch (error) {
       console.error('Error:', error)
-      setResult({ error: 'خطا در ارتباط با سرور' })
+      setResult({ error: error instanceof Error ? error.message : 'خطا در ارتباط با سرور' })
     } finally {
       setLoading(false)
     }

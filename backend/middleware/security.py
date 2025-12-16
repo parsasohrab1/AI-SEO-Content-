@@ -23,52 +23,61 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.requests_per_minute = requests_per_minute
     
     async def dispatch(self, request: Request, call_next):
-        # دریافت IP Client
-        client_ip = request.client.host if request.client else "unknown"
-        
-        # بررسی Rate Limit
-        current_time = time.time()
-        minute_window = int(current_time / 60)
-        key = f"{client_ip}:{minute_window}"
-        
-        # شمارش درخواست‌ها
-        request_count = rate_limit_storage.get(key, 0)
-        
-        if request_count >= self.requests_per_minute:
-            logger.warning(f"Rate limit exceeded for IP: {client_ip}")
-            return Response(
-                content="Rate limit exceeded",
-                status_code=429,
-                headers={"Retry-After": "60"}
-            )
-        
-        # افزایش شمارنده
-        rate_limit_storage[key] = request_count + 1
-        
-        # پاک کردن کلیدهای قدیمی
-        for old_key in list(rate_limit_storage.keys()):
-            if old_key != key:
-                del rate_limit_storage[old_key]
-        
-        # ادامه Request
-        response = await call_next(request)
-        return response
+        try:
+            # دریافت IP Client
+            client_ip = request.client.host if request.client else "unknown"
+            
+            # بررسی Rate Limit
+            current_time = time.time()
+            minute_window = int(current_time / 60)
+            key = f"{client_ip}:{minute_window}"
+            
+            # شمارش درخواست‌ها
+            request_count = rate_limit_storage.get(key, 0)
+            
+            if request_count >= self.requests_per_minute:
+                logger.warning(f"Rate limit exceeded for IP: {client_ip}")
+                return Response(
+                    content="Rate limit exceeded",
+                    status_code=429,
+                    headers={"Retry-After": "60"}
+                )
+            
+            # افزایش شمارنده
+            rate_limit_storage[key] = request_count + 1
+            
+            # پاک کردن کلیدهای قدیمی
+            for old_key in list(rate_limit_storage.keys()):
+                if old_key != key:
+                    del rate_limit_storage[old_key]
+            
+            # ادامه Request
+            response = await call_next(request)
+            return response
+        except Exception as e:
+            logger.error(f"Error in RateLimitMiddleware: {str(e)}", exc_info=True)
+            # در صورت خطا، ادامه می‌دهیم بدون Rate Limiting
+            return await call_next(request)
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Middleware برای اضافه کردن Security Headers"""
     
     async def dispatch(self, request: Request, call_next):
-        response = await call_next(request)
-        
-        # اضافه کردن Security Headers
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
-        response.headers["X-XSS-Protection"] = "1; mode=block"
-        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-        response.headers["Content-Security-Policy"] = "default-src 'self'"
-        
-        return response
+        try:
+            response = await call_next(request)
+            
+            # اضافه کردن Security Headers
+            response.headers["X-Content-Type-Options"] = "nosniff"
+            response.headers["X-Frame-Options"] = "DENY"
+            response.headers["X-XSS-Protection"] = "1; mode=block"
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+            response.headers["Content-Security-Policy"] = "default-src 'self'"
+            
+            return response
+        except Exception as e:
+            logger.error(f"Error in SecurityHeadersMiddleware: {str(e)}", exc_info=True)
+            raise
 
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
@@ -77,23 +86,32 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         start_time = time.time()
         
-        # Log Request
-        logger.info(
-            f"Request: {request.method} {request.url.path} "
-            f"from {request.client.host if request.client else 'unknown'}"
-        )
-        
-        # اجرای Request
-        response = await call_next(request)
-        
-        # محاسبه Duration
-        duration = time.time() - start_time
-        
-        # Log Response
-        logger.info(
-            f"Response: {request.method} {request.url.path} "
-            f"Status: {response.status_code} Duration: {duration:.3f}s"
-        )
-        
-        return response
+        try:
+            # Log Request
+            logger.info(
+                f"Request: {request.method} {request.url.path} "
+                f"from {request.client.host if request.client else 'unknown'}"
+            )
+            
+            # اجرای Request
+            response = await call_next(request)
+            
+            # محاسبه Duration
+            duration = time.time() - start_time
+            
+            # Log Response
+            logger.info(
+                f"Response: {request.method} {request.url.path} "
+                f"Status: {response.status_code} Duration: {duration:.3f}s"
+            )
+            
+            return response
+        except Exception as e:
+            duration = time.time() - start_time
+            logger.error(
+                f"Error in RequestLoggingMiddleware: {request.method} {request.url.path} "
+                f"Duration: {duration:.3f}s Error: {str(e)}",
+                exc_info=True
+            )
+            raise
 

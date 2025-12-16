@@ -348,16 +348,17 @@ class DashboardManager:
                 })
             else:
                 # پیشنهاد عمومی
-                recommendations.append({
-                    'id': f'rec_{len(recommendations)}',
-                    'title': f'بهبود {title}',
-                    'description': weakness.get('description', 'این مشکل باید برطرف شود تا سئو سایت بهبود یابد.'),
-                    'category': category,
-                    'priority': priority,
-                    'impact': 'بهبود سئو و عملکرد سایت',
-                    'estimatedTime': '1-2 ساعت',
-                    'automated': False
-                })
+                if title:  # فقط اگر title وجود دارد
+                    recommendations.append({
+                        'id': f'rec_{len(recommendations)}',
+                        'title': f'بهبود {title}',
+                        'description': str(weakness.get('description', 'این مشکل باید برطرف شود تا سئو سایت بهبود یابد.')),
+                        'category': category,
+                        'priority': priority,
+                        'impact': 'بهبود سئو و عملکرد سایت',
+                        'estimatedTime': '1-2 ساعت',
+                        'automated': False
+                    })
         
         # پیشنهادات اضافی بر اساس تحلیل سئو
         seo_issues = seo_analysis.get('issues', [])
@@ -365,16 +366,17 @@ class DashboardManager:
             for issue in seo_issues:
                 if not isinstance(issue, dict):
                     continue
-                if not any(rec.get('title') == issue.get('title') for rec in recommendations):
+                issue_title = str(issue.get('title', ''))
+                if issue_title and not any(str(rec.get('title', '')) == issue_title for rec in recommendations):
                     recommendations.append({
                         'id': f'rec_{len(recommendations)}',
-                        'title': issue.get('title', 'بهبود سئو'),
-                        'description': issue.get('description', 'این مشکل سئو باید برطرف شود.'),
+                        'title': issue_title,
+                        'description': str(issue.get('description', 'این مشکل سئو باید برطرف شود.')),
                         'category': 'سئو',
-                        'priority': issue.get('priority', 'medium'),
+                        'priority': str(issue.get('priority', 'medium')),
                         'impact': 'بهبود رتبه در موتورهای جستجو',
                         'estimatedTime': '1 ساعت',
-                        'automated': issue.get('automated', False)
+                        'automated': bool(issue.get('automated', False))
                     })
         
         # اگر هیچ پیشنهادی تولید نشد

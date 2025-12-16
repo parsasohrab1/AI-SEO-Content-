@@ -43,7 +43,16 @@ export default function AnalysisPage() {
             }
             return
           }
-          throw new Error(`Failed to fetch dashboard data: ${response.status}`)
+          // Try to get error message from response
+          let errorMessage = `خطا در دریافت داده‌ها: ${response.status}`
+          try {
+            const errorData = await response.json()
+            errorMessage = errorData.detail || errorData.message || errorMessage
+          } catch {
+            // If JSON parsing fails, use status text
+            errorMessage = `${errorMessage} ${response.statusText}`
+          }
+          throw new Error(errorMessage)
         }
         const dashboardData = await response.json()
         setData(dashboardData)
