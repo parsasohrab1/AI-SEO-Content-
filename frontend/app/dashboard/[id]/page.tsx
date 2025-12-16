@@ -36,16 +36,23 @@ export default function DashboardPage() {
 
   useEffect(() => {
     let intervalId: NodeJS.Timeout | null = null
+    let shouldPoll = true
     
     const fetchDashboard = async () => {
+      if (!shouldPoll) {
+        return
+      }
+      
       try {
         const response = await fetch(`http://localhost:8002/dashboard/${analysisId}`)
         if (!response.ok) {
           if (response.status === 404) {
-            setError('Dashboard یافت نشد')
+            setError('Dashboard یافت نشد. احتمالاً بک‌اند restart شده و داده‌ها از بین رفته است. لطفاً یک تحلیل جدید ایجاد کنید.')
             setLoading(false)
+            shouldPoll = false
             if (intervalId) {
               clearInterval(intervalId)
+              intervalId = null
             }
             return
           }
@@ -58,17 +65,25 @@ export default function DashboardPage() {
         // Stop polling if analysis is completed AND data is ready, or if failed
         const hasData = dashboardData.data?.site_analysis || dashboardData.data?.seo_analysis
         if ((dashboardData.status === 'completed' && hasData) || dashboardData.status === 'failed') {
+          shouldPoll = false
           if (intervalId) {
             clearInterval(intervalId)
             intervalId = null
           }
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'خطا در دریافت داده‌ها')
-        setLoading(false)
-        if (intervalId) {
-          clearInterval(intervalId)
-          intervalId = null
+        // Only set error if it's not a 404 (which we already handled)
+        if (!err || (err instanceof Error && !err.message.includes('404'))) {
+          setError(err instanceof Error ? err.message : 'خطا در دریافت داده‌ها')
+          setLoading(false)
+        }
+        // Don't stop polling on network errors, only on 404
+        if (err instanceof Error && err.message.includes('404')) {
+          shouldPoll = false
+          if (intervalId) {
+            clearInterval(intervalId)
+            intervalId = null
+          }
         }
       } finally {
         setLoading(false)
@@ -79,10 +94,18 @@ export default function DashboardPage() {
       fetchDashboard()
       // Poll for updates every 5 seconds until data is ready
       intervalId = setInterval(() => {
-        fetchDashboard()
+        if (shouldPoll) {
+          fetchDashboard()
+        } else {
+          if (intervalId) {
+            clearInterval(intervalId)
+            intervalId = null
+          }
+        }
       }, 5000)
       
       return () => {
+        shouldPoll = false
         if (intervalId) {
           clearInterval(intervalId)
         }
@@ -103,12 +126,29 @@ export default function DashboardPage() {
 
   if (error || !data) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-600 mb-4">{error || 'Dashboard یافت نشد'}</p>
-          <Link href="/" className="text-blue-600 hover:underline">
-            بازگشت به صفحه اصلی
-          </Link>
+      <div className="min-h-screen bg-gray-50 p-8">
+        <div className="max-w-2xl mx-auto">
+          <div className="bg-white rounded-lg shadow p-8 text-center">
+            <div className="mb-4">
+              <svg className="mx-auto h-16 w-16 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Dashboard یافت نشد</h2>
+            <p className="text-gray-600 mb-4">{error || 'Dashboard یافت نشد'}</p>
+            <p className="text-sm text-gray-500 mb-6">
+              این داشبورد احتمالاً بعد از restart شدن بک‌اند از بین رفته است. 
+              داده‌ها در حال حاضر در حافظه ذخیره می‌شوند و با restart از بین می‌روند.
+            </p>
+            <div className="space-x-4">
+              <Link
+                href="/"
+                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                ایجاد تحلیل جدید
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
     )
