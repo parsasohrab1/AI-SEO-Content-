@@ -223,4 +223,68 @@ class ContentGenerator:
 
 """
         return content.strip()
+    
+    async def _save_text_file(self, file_id: str, title: str, content: str) -> str:
+        """ذخیره محتوای متنی در فایل Word"""
+        try:
+            # ایجاد پوشه برای فایل‌ها
+            files_dir = Path("generated_content")
+            files_dir.mkdir(exist_ok=True)
+            
+            # ایجاد فایل Word (در حالت واقعی از python-docx استفاده می‌شود)
+            # برای حال حاضر، فایل .txt ایجاد می‌کنیم که بعداً به Word تبدیل می‌شود
+            file_path = files_dir / f"{file_id}.txt"
+            
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(f"{title}\n\n{content}")
+            
+            logger.info(f"Text file saved: {file_path}")
+            return str(file_path)
+        except Exception as e:
+            logger.error(f"Error saving text file: {str(e)}")
+            return ""
+    
+    async def _save_image_file(self, file_id: str, keyword: str) -> str:
+        """ذخیره فایل تصویری JPG"""
+        try:
+            # ایجاد پوشه برای فایل‌ها
+            files_dir = Path("generated_content")
+            files_dir.mkdir(exist_ok=True)
+            
+            # در حالت واقعی، اینجا تصویر واقعی تولید می‌شود
+            # برای حال حاضر، یک فایل placeholder ایجاد می‌کنیم
+            file_path = files_dir / f"{file_id}.jpg"
+            
+            # ایجاد یک فایل placeholder (در حالت واقعی، تصویر واقعی تولید می‌شود)
+            with open(file_path, 'wb') as f:
+                # این یک placeholder است - در حالت واقعی از PIL یا کتابخانه‌های دیگر استفاده می‌شود
+                f.write(b'')  # فایل خالی برای placeholder
+            
+            logger.info(f"Image file placeholder created: {file_path}")
+            return str(file_path)
+        except Exception as e:
+            logger.error(f"Error saving image file: {str(e)}")
+            return ""
+    
+    async def _save_video_file(self, file_id: str, keyword: str) -> str:
+        """ذخیره فایل ویدیویی MP4"""
+        try:
+            # ایجاد پوشه برای فایل‌ها
+            files_dir = Path("generated_content")
+            files_dir.mkdir(exist_ok=True)
+            
+            # در حالت واقعی، اینجا ویدیو واقعی تولید می‌شود
+            # برای حال حاضر، یک فایل placeholder ایجاد می‌کنیم
+            file_path = files_dir / f"{file_id}.mp4"
+            
+            # ایجاد یک فایل placeholder (در حالت واقعی، ویدیو واقعی تولید می‌شود)
+            with open(file_path, 'wb') as f:
+                # این یک placeholder است - در حالت واقعی از ffmpeg یا کتابخانه‌های دیگر استفاده می‌شود
+                f.write(b'')  # فایل خالی برای placeholder
+            
+            logger.info(f"Video file placeholder created: {file_path}")
+            return str(file_path)
+        except Exception as e:
+            logger.error(f"Error saving video file: {str(e)}")
+            return ""
 
