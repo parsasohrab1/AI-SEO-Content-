@@ -214,6 +214,13 @@ class SiteAnalyzer:
             'forms': len(soup.find_all('form'))
         }
         
+        # استخراج زبان از HTML
+        html_tag = soup.find('html')
+        if html_tag:
+            html_lang = html_tag.get('lang', '')
+            if html_lang:
+                structure['html_lang'] = html_lang
+        
         return structure
     
     async def analyze_performance(self, url: str) -> Dict[str, Any]:
