@@ -188,8 +188,11 @@ async def create_full_pipeline(
     # Step 2: SEO Analysis (وابسته به Site Analysis)
     async def seo_analysis_step(context: Dict[str, Any]) -> Dict[str, Any]:
         analyzer = SEOAnalyzer()
-        result = await analyzer.deep_analysis(site_url)
-        return result
+        try:
+            result = await analyzer.deep_analysis(site_url)
+            return result
+        finally:
+            await analyzer.close()
     
     pipeline.add_step(PipelineStep(
         "seo_analysis",

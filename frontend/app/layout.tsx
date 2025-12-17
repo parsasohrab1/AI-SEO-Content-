@@ -1,9 +1,15 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import { ErrorBoundary } from './error-boundary'
 
 export const metadata: Metadata = {
   title: 'AI Content Factory Pro',
   description: 'سیستم تولید و بهینه‌سازی محتوای خودکار',
+  icons: {
+    icon: '/icon.svg',
+    shortcut: '/icon.svg',
+    apple: '/icon.svg',
+  },
 }
 
 export default function RootLayout({
@@ -13,7 +19,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="fa" dir="rtl">
-      <body suppressHydrationWarning>{children}</body>
+      <body suppressHydrationWarning>
+        <ErrorBoundary>
+          {children}
+        </ErrorBoundary>
+      </body>
     </html>
   )
 }

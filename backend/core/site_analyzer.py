@@ -18,9 +18,15 @@ class SiteAnalyzer:
     """کلاس اصلی تحلیل سایت"""
     
     def __init__(self):
+        import ssl
+        import warnings
+        # Suppress SSL warnings for expired certificates
+        warnings.filterwarnings('ignore', message='Unverified HTTPS request')
+        
         self.client = httpx.AsyncClient(
             timeout=30.0,
             follow_redirects=True,
+            verify=False,  # غیرفعال کردن SSL verification برای سایت‌های با گواهینامه منقضی شده
             headers={
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
             }
@@ -84,6 +90,21 @@ class SiteAnalyzer:
             response = await self.client.get(url)
             response.raise_for_status()
             return response.text
+        except httpx.HTTPError as e:
+            # اگر خطای SSL بود، سعی می‌کنیم با HTTP (بدون SSL) تلاش کنیم
+            if 'SSL' in str(e) or 'certificate' in str(e).lower():
+                logger.warning(f"SSL error for {url}, trying HTTP fallback")
+                try:
+                    # تبدیل HTTPS به HTTP
+                    fallback_url = url.replace('https://', 'http://')
+                    response = await self.client.get(fallback_url)
+                    response.raise_for_status()
+                    return response.text
+                except Exception as fallback_error:
+                    logger.error(f"Error fetching page {url} (HTTP fallback also failed): {str(fallback_error)}")
+                    raise
+            logger.error(f"Error fetching page {url}: {str(e)}")
+            raise
         except Exception as e:
             logger.error(f"Error fetching page {url}: {str(e)}")
             raise

@@ -88,6 +88,12 @@ class SiteAnalysisResponse(BaseModel):
     dashboard_url: Optional[str] = None
 
 
+class ApplyFixesRequest(BaseModel):
+    """مدل درخواست اعمال اصلاحات"""
+    fixes: Optional[List[str]] = Field(default=[], description="لیست عنوان‌های اصلاحات")
+    recommendation_ids: Optional[List[str]] = Field(default=[], description="لیست ID پیشنهادات")
+
+
 # Health Check
 @app.get("/")
 async def root():
@@ -228,7 +234,10 @@ async def get_dashboard(analysis_id: str):
         dashboard_data = await dashboard_manager.get_dashboard_data(analysis_id)
         
         if not dashboard_data:
-            raise HTTPException(status_code=404, detail="Dashboard not found")
+            raise HTTPException(
+                status_code=404, 
+                detail="Dashboard یافت نشد. احتمالاً بک‌اند restart شده و داده‌ها از بین رفته است. لطفاً یک تحلیل جدید ایجاد کنید."
+            )
         
         return dashboard_data
         
@@ -256,54 +265,234 @@ async def get_seo_report(analysis_id: str):
 
 
 # Additional Endpoints
+@app.post("/dashboard/{analysis_id}/save-credentials")
+async def save_cms_credentials(analysis_id: str, request_data: Dict):
+    """ذخیره اطلاعات لاگین CMS"""
+    try:
+        from core.dashboard_manager import DashboardManager
+        
+        dashboard_manager = DashboardManager()
+        dashboard_data = await dashboard_manager.get_dashboard_data(analysis_id)
+        
+        if not dashboard_data:
+            raise HTTPException(
+                status_code=404, 
+                detail="Dashboard یافت نشد. احتمالاً بک‌اند restart شده و داده‌ها از بین رفته است. لطفاً یک تحلیل جدید ایجاد کنید."
+            )
+        
+        # ذخیره اطلاعات لاگین
+        credentials = {
+            'cms_type': request_data.get('cms_type', 'wordpress'),
+            'admin_url': request_data.get('admin_url', ''),
+            'username': request_data.get('username', ''),
+            'password': request_data.get('password', ''),  # در production باید encrypt شود
+            'api_key': request_data.get('api_key', ''),
+            'saved_at': datetime.now().isoformat()
+        }
+        
+        await dashboard_manager.update_dashboard(
+            analysis_id,
+            {
+                'cms_credentials': credentials
+            }
+        )
+        
+        return {
+            'message': 'اطلاعات لاگین با موفقیت ذخیره شد',
+            'cms_type': credentials['cms_type']
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error saving credentials: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/dashboard/{analysis_id}/apply-fixes")
-async def apply_specific_fixes(analysis_id: str, request_data: Dict):
+async def apply_specific_fixes(analysis_id: str, request_data: ApplyFixesRequest):
     """اعمال اصلاحات خاص"""
     try:
         from core.dashboard_manager import DashboardManager
         from core.seo_implementation import AutoSEOImplementation
+        from core.report_generator import ReportGenerator
         
-        fixes = request_data.get('fixes', [])
-        recommendation_ids = request_data.get('recommendation_ids', [])
+        # تبدیل Pydantic model به dict
+        request_dict = request_data.dict()
+        fixes = request_dict.get('fixes', []) or []
+        recommendation_ids = request_dict.get('recommendation_ids', []) or []
+        
+        # بررسی اینکه حداقل یکی از فیلدها پر باشد
+        if not fixes and not recommendation_ids:
+            raise HTTPException(status_code=400, detail="حداقل باید یک پیشنهاد انتخاب شود")
         
         # دریافت داده‌های داشبورد
         dashboard_manager = DashboardManager()
         dashboard_data = await dashboard_manager.get_dashboard_data(analysis_id)
         
         if not dashboard_data:
-            raise HTTPException(status_code=404, detail="Dashboard not found")
+            raise HTTPException(
+                status_code=404, 
+                detail="Dashboard یافت نشد. احتمالاً بک‌اند restart شده و داده‌ها از بین رفته است. لطفاً یک تحلیل جدید ایجاد کنید."
+            )
         
         site_url = dashboard_data.get('site_url', '')
         if not site_url:
             raise HTTPException(status_code=400, detail="Site URL not found")
         
-        # دریافت پیشنهادات
+        # دریافت اطلاعات لاگین CMS (اگر موجود باشد)
+        cms_credentials = dashboard_data.get('cms_credentials', {})
+        cms_type = cms_credentials.get('cms_type') if cms_credentials else None
+        
+        # دریافت نوع CMS از تحلیل سایت
+        site_analysis = dashboard_data.get('data', {}).get('site_analysis', {})
+        detected_cms = site_analysis.get('cms_type', 'custom') if site_analysis else 'custom'
+        
+        # استفاده از نوع CMS از credentials یا از تحلیل
+        final_cms_type = cms_type or detected_cms
+        
+        # دریافت weaknesses برای استفاده در کل تابع
+        weaknesses = dashboard_data.get('weaknesses', [])
+        
+        # دریافت پیشنهادات - اگر در dashboard موجود نبود، از weaknesses تولید می‌کنیم
         recommendations = dashboard_data.get('recommendations', [])
+        
+        # اضافه کردن مشکلات سئو به عنوان پیشنهادات
+        seo_analysis = dashboard_data.get('data', {}).get('seo_analysis', {})
+        seo_issues = seo_analysis.get('issues', []) if isinstance(seo_analysis, dict) else []
+        
+        if seo_issues:
+            for i, issue in enumerate(seo_issues):
+                if isinstance(issue, dict):
+                    # تبدیل مشکل سئو به پیشنهاد
+                    issue_title = issue.get('title', '')
+                    issue_type = issue.get('type', 'general')
+                    
+                    # بررسی اینکه آیا این پیشنهاد قبلاً وجود دارد
+                    existing_rec = next((r for r in recommendations if r.get('title') == issue_title), None)
+                    if not existing_rec:
+                        recommendations.append({
+                            'id': f'seo_issue_{i}',
+                            'title': issue_title,
+                            'description': issue.get('description', ''),
+                            'category': issue_type,
+                            'priority': issue.get('severity', 'medium'),
+                            'automated': issue_type in ['headings_h1', 'images_alt', 'meta_tags'],
+                            'recommendation': issue.get('recommendation', ''),
+                            'source': 'seo_analysis'
+                        })
+        
+        # اگر recommendations موجود نبود، از weaknesses تولید می‌کنیم
+        if not recommendations and weaknesses:
+                # تبدیل weaknesses به recommendations
+                recommendations = []
+                for i, weakness in enumerate(weaknesses):
+                    recommendations.append({
+                        'id': f"rec_{i}",
+                        'title': weakness.get('title', ''),
+                        'description': weakness.get('description', ''),
+                        'category': weakness.get('category', 'عمومی'),
+                        'priority': weakness.get('priority', 'medium'),
+                        'automated': False
+                    })
         
         # فیلتر کردن پیشنهادات انتخاب شده
         selected_recommendations = []
-        if recommendation_ids:
+        
+        logger.info(f"Received recommendation_ids: {recommendation_ids}, fixes: {fixes}")
+        logger.info(f"Available recommendations count: {len(recommendations)}")
+        
+        if recommendation_ids and len(recommendation_ids) > 0:
             for rec_id in recommendation_ids:
                 # پیدا کردن پیشنهاد بر اساس ID
                 rec = None
-                for i, r in enumerate(recommendations):
-                    if (r.get('id') == rec_id) or (f"rec_{i}" == rec_id):
+                # اول سعی می‌کنیم با ID دقیق match کنیم
+                for r in recommendations:
+                    if r.get('id') == rec_id:
                         rec = r
                         break
+                
+                # اگر پیدا نشد، با index match می‌کنیم
+                if not rec:
+                    # اگر rec_id به صورت "rec_0" است، index را استخراج می‌کنیم
+                    if rec_id.startswith('rec_'):
+                        try:
+                            index = int(rec_id.split('_')[1])
+                            if 0 <= index < len(recommendations):
+                                rec = recommendations[index]
+                        except (ValueError, IndexError):
+                            pass
+                    # اگر rec_id به صورت "seo_issue_0" است، از مشکلات سئو استفاده می‌کنیم
+                    elif rec_id.startswith('seo_issue_'):
+                        try:
+                            issue_index = int(rec_id.replace('seo_issue_', ''))
+                            seo_issues = seo_analysis.get('issues', []) if isinstance(seo_analysis, dict) else []
+                            if 0 <= issue_index < len(seo_issues):
+                                issue = seo_issues[issue_index]
+                                if isinstance(issue, dict):
+                                    rec = {
+                                        'id': rec_id,
+                                        'title': issue.get('title', ''),
+                                        'description': issue.get('description', ''),
+                                        'category': issue.get('type', 'general'),
+                                        'priority': issue.get('severity', 'medium'),
+                                        'automated': issue.get('type', '') in ['headings_h1', 'images_alt', 'meta_tags'],
+                                        'recommendation': issue.get('recommendation', ''),
+                                        'source': 'seo_analysis'
+                                    }
+                        except (ValueError, IndexError):
+                            pass
+                
                 if rec:
                     selected_recommendations.append(rec)
-        else:
-            # اگر ID نداشتیم، از عنوان استفاده می‌کنیم
+                    logger.info(f"Found recommendation: {rec.get('title')}")
+                else:
+                    logger.warning(f"Recommendation ID not found: {rec_id}")
+        
+        # اگر با ID پیدا نکردیم، از عنوان استفاده می‌کنیم
+        if not selected_recommendations and fixes and len(fixes) > 0:
             for fix_title in fixes:
                 rec = next((r for r in recommendations if r.get('title') == fix_title), None)
                 if rec:
                     selected_recommendations.append(rec)
+                    logger.info(f"Found recommendation by title: {rec.get('title')}")
         
         if not selected_recommendations:
-            raise HTTPException(status_code=400, detail="No valid recommendations found")
+            # اگر هیچ پیشنهادی پیدا نشد، سعی می‌کنیم از weaknesses مستقیماً استفاده کنیم
+            if weaknesses and recommendation_ids:
+                logger.info("Trying to create recommendations from weaknesses directly")
+                for rec_id in recommendation_ids:
+                    if rec_id.startswith('rec_'):
+                        try:
+                            index = int(rec_id.split('_')[1])
+                            weaknesses_list = dashboard_data.get('weaknesses', [])
+                            if 0 <= index < len(weaknesses_list):
+                                weakness = weaknesses_list[index]
+                                selected_recommendations.append({
+                                    'id': rec_id,
+                                    'title': weakness.get('title', ''),
+                                    'description': weakness.get('description', ''),
+                                    'category': weakness.get('category', 'عمومی'),
+                                    'priority': weakness.get('priority', 'medium'),
+                                    'automated': False
+                                })
+                                logger.info(f"Created recommendation from weakness: {weakness.get('title')}")
+                        except (ValueError, IndexError):
+                            pass
+            
+            if not selected_recommendations:
+                error_detail = f"هیچ پیشنهاد معتبری یافت نشد. "
+                error_detail += f"درخواست شده: {recommendation_ids if recommendation_ids else fixes}. "
+                error_detail += f"تعداد پیشنهادات موجود: {len(recommendations)}"
+                if recommendations:
+                    error_detail += f". IDهای موجود: {[r.get('id', f'rec_{i}') for i, r in enumerate(recommendations[:5])]}"
+                weaknesses_list = dashboard_data.get('weaknesses', [])
+                if weaknesses_list:
+                    error_detail += f". تعداد weaknesses: {len(weaknesses_list)}"
+                raise HTTPException(status_code=400, detail=error_detail)
         
         # اعمال پیشنهادات
-        implementor = AutoSEOImplementation(site_url)
+        implementor = AutoSEOImplementation(site_url, cms_credentials if cms_credentials else None, final_cms_type)
         results = []
         
         for rec in selected_recommendations:
@@ -317,9 +506,13 @@ async def apply_specific_fixes(analysis_id: str, request_data: Dict):
                     'automated': rec.get('automated', False)
                 }
                 
+                # اگر اطلاعات لاگین موجود باشد، همه پیشنهادات را خودکار اعمال می‌کنیم
+                has_credentials = bool(cms_credentials and cms_credentials.get('username') and cms_credentials.get('password'))
+                can_auto_apply = has_credentials or rec.get('automated', False)
+                
                 # اعمال fix
-                if rec.get('automated', False):
-                    result = await implementor.implement_fix(issue)
+                if can_auto_apply:
+                    result = await implementor.implement_fix(issue, cms_credentials if has_credentials else None)
                     results.append({
                         'recommendation_id': rec.get('id', ''),
                         'title': rec.get('title', ''),
@@ -328,14 +521,49 @@ async def apply_specific_fixes(analysis_id: str, request_data: Dict):
                         'changes': result.get('changes', [])
                     })
                 else:
-                    # برای پیشنهادات غیرخودکار، فقط ثبت می‌کنیم
-                    results.append({
-                        'recommendation_id': rec.get('id', ''),
-                        'title': rec.get('title', ''),
-                        'status': 'pending',
-                        'message': 'این پیشنهاد نیاز به اعمال دستی دارد',
-                        'manual_required': True
-                    })
+                    # برای پیشنهادات غیرخودکار
+                    # بررسی اینکه آیا این پیشنهاد نیاز به تنظیمات سرور دارد (مثل HTTPS)
+                    title_lower = rec.get('title', '').lower()
+                    needs_server_config = 'https' in title_lower or 'ssl' in title_lower or 'گواهینامه' in title_lower
+                    
+                    if has_credentials and needs_server_config:
+                        # اگر credentials موجود است اما نیاز به تنظیمات سرور دارد
+                        results.append({
+                            'recommendation_id': rec.get('id', ''),
+                            'title': rec.get('title', ''),
+                            'status': 'pending',
+                            'message': f'این پیشنهاد ({rec.get("title")}) نیاز به تنظیمات دستی در سطح سرور دارد و نمی‌تواند به صورت خودکار اعمال شود. لطفاً با مدیر سرور تماس بگیرید.',
+                            'manual_required': True
+                        })
+                    elif has_credentials:
+                        # اگر credentials موجود است اما automated نیست، سعی می‌کنیم اعمال کنیم
+                        try:
+                            result = await implementor.implement_fix(issue, cms_credentials)
+                            results.append({
+                                'recommendation_id': rec.get('id', ''),
+                                'title': rec.get('title', ''),
+                                'status': 'success' if result.get('success') else 'pending',
+                                'message': result.get('message', 'در حال اعمال...'),
+                                'changes': result.get('changes', [])
+                            })
+                        except Exception as e:
+                            logger.error(f"Error applying fix with credentials: {str(e)}")
+                            results.append({
+                                'recommendation_id': rec.get('id', ''),
+                                'title': rec.get('title', ''),
+                                'status': 'pending',
+                                'message': f'خطا در اعمال: {str(e)}',
+                                'manual_required': True
+                            })
+                    else:
+                        # اگر credentials موجود نیست
+                        results.append({
+                            'recommendation_id': rec.get('id', ''),
+                            'title': rec.get('title', ''),
+                            'status': 'pending',
+                            'message': 'این پیشنهاد نیاز به اعمال دستی دارد. لطفاً اطلاعات لاگین CMS را وارد کنید.',
+                            'manual_required': True
+                        })
                     
             except Exception as e:
                 logger.error(f"Error applying fix for {rec.get('title')}: {str(e)}")
@@ -530,7 +758,10 @@ async def get_live_monitoring(analysis_id: str):
         dashboard_data = await dashboard_manager.get_dashboard_data(analysis_id)
         
         if not dashboard_data:
-            raise HTTPException(status_code=404, detail="Dashboard not found")
+            raise HTTPException(
+                status_code=404, 
+                detail="Dashboard یافت نشد. احتمالاً بک‌اند restart شده و داده‌ها از بین رفته است. لطفاً یک تحلیل جدید ایجاد کنید."
+            )
         
         # استخراج داده‌ها - با fallback برای داده‌های خالی
         data_dict = dashboard_data.get('data', {})
@@ -654,7 +885,10 @@ async def download_content_file(analysis_id: str, content_id: str):
         dashboard_data = await dashboard_manager.get_dashboard_data(analysis_id)
         
         if not dashboard_data:
-            raise HTTPException(status_code=404, detail="Dashboard not found")
+            raise HTTPException(
+                status_code=404, 
+                detail="Dashboard یافت نشد. احتمالاً بک‌اند restart شده و داده‌ها از بین رفته است. لطفاً یک تحلیل جدید ایجاد کنید."
+            )
         
         # پیدا کردن محتوا
         generated_content = dashboard_data.get('data', {}).get('generated_content', {})
@@ -696,6 +930,51 @@ async def download_content_file(analysis_id: str, content_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/dashboard/{analysis_id}/rank")
+async def get_site_rank(analysis_id: str):
+    """دریافت رنک سایت (جهانی و ایران)"""
+    try:
+        from core.dashboard_manager import DashboardManager
+        from core.rank_checker import RankChecker
+        
+        # دریافت داده‌های داشبورد
+        dashboard_manager = DashboardManager()
+        dashboard_data = await dashboard_manager.get_dashboard_data(analysis_id)
+        
+        if not dashboard_data:
+            raise HTTPException(
+                status_code=404, 
+                detail="Dashboard یافت نشد. احتمالاً بک‌اند restart شده و داده‌ها از بین رفته است. لطفاً یک تحلیل جدید ایجاد کنید."
+            )
+        
+        site_url = dashboard_data.get('site_url', '')
+        if not site_url:
+            raise HTTPException(status_code=400, detail="Site URL not found in dashboard")
+        
+        # دریافت رنک سایت
+        rank_checker = RankChecker()
+        try:
+            rank_data = await rank_checker.get_comprehensive_rank(site_url)
+            
+            # ذخیره رنک در داشبورد
+            await dashboard_manager.update_dashboard(
+                analysis_id,
+                {
+                    'rank_data': rank_data
+                }
+            )
+            
+            return rank_data
+        finally:
+            await rank_checker.close()
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting site rank: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/dashboard/{analysis_id}/generate-content")
 async def generate_additional_content(analysis_id: str, content_spec: Dict = None):
     """تولید محتوای اضافی یا تولید مجدد محتوا"""
@@ -708,7 +987,10 @@ async def generate_additional_content(analysis_id: str, content_spec: Dict = Non
         dashboard_data = await dashboard_manager.get_dashboard_data(analysis_id)
         
         if not dashboard_data:
-            raise HTTPException(status_code=404, detail="Dashboard not found")
+            raise HTTPException(
+                status_code=404, 
+                detail="Dashboard یافت نشد. احتمالاً بک‌اند restart شده و داده‌ها از بین رفته است. لطفاً یک تحلیل جدید ایجاد کنید."
+            )
         
         # استخراج داده‌های تحلیل
         site_analysis = dashboard_data.get('data', {}).get('site_analysis', {})

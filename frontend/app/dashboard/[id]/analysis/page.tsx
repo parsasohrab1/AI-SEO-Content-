@@ -19,8 +19,11 @@ export default function AnalysisPage() {
   const [error, setError] = useState<string | null>(null)
   const [strengths, setStrengths] = useState<StrengthWeakness[]>([])
   const [weaknesses, setWeaknesses] = useState<StrengthWeakness[]>([])
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
   const shouldPollRef = useRef<boolean>(true)
+  const pollingIntervalRef = useRef<number>(5000) // Track current polling interval
 
   useEffect(() => {
     const fetchData = async () => {
@@ -57,22 +60,44 @@ export default function AnalysisPage() {
         const dashboardData = await response.json()
         setData(dashboardData)
         setError(null) // Clear any previous errors
+        setLastUpdate(new Date())
+        setIsRefreshing(false)
         
-        // استخراج نقاط قوت و ضعف
-        if (dashboardData.strengths) {
-          setStrengths(dashboardData.strengths)
-        }
-        if (dashboardData.weaknesses) {
-          setWeaknesses(dashboardData.weaknesses)
-        }
+        // استخراج نقاط قوت و ضعف - همیشه به‌روزرسانی می‌شود
+        const newStrengths = dashboardData.strengths || []
+        const newWeaknesses = dashboardData.weaknesses || []
         
-        // Stop polling if analysis is completed or failed
-        if (dashboardData.status === 'completed' || dashboardData.status === 'failed') {
+        // همیشه state را به‌روزرسانی می‌کنیم (حتی اگر تغییر نکرده باشد)
+        setStrengths(newStrengths)
+        setWeaknesses(newWeaknesses)
+        
+        // Continue polling even after completion for real-time updates
+        // Only stop if explicitly failed
+        if (dashboardData.status === 'failed') {
           shouldPollRef.current = false
           if (intervalRef.current) {
             clearInterval(intervalRef.current)
             intervalRef.current = null
           }
+        } else {
+          // همیشه polling را ادامه می‌دهیم
+          // اگر status completed است و هنوز interval 5 ثانیه‌ای است، آن را به 10 ثانیه تغییر می‌دهیم
+          if (dashboardData.status === 'completed' && pollingIntervalRef.current === 5000) {
+            // Reduce polling frequency after completion but keep polling for updates
+            if (intervalRef.current) {
+              clearInterval(intervalRef.current)
+              intervalRef.current = null
+            }
+            pollingIntervalRef.current = 10000
+            // Continue with slower polling (every 10 seconds instead of 5)
+            intervalRef.current = setInterval(() => {
+              if (shouldPollRef.current) {
+                fetchData()
+              }
+            }, pollingIntervalRef.current)
+          }
+          // اگر status completed است اما interval قبلاً تغییر کرده، polling ادامه می‌یابد
+          // اگر status processing است، polling با همان interval ادامه می‌یابد
         }
       } catch (err) {
         console.error('Error:', err)
@@ -91,9 +116,18 @@ export default function AnalysisPage() {
 
     if (analysisId) {
       shouldPollRef.current = true
+      
+      // همیشه interval را از ابتدا تنظیم می‌کنیم
+      // اگر interval قبلی وجود دارد، آن را پاک می‌کنیم
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
+      
+      // اولین fetch را انجام می‌دهیم
       fetchData()
       
-      // Poll for updates every 5 seconds
+      // Poll for updates every 5 seconds (will be reduced to 10 seconds after completion)
       intervalRef.current = setInterval(() => {
         if (shouldPollRef.current) {
           fetchData()
@@ -104,7 +138,7 @@ export default function AnalysisPage() {
             intervalRef.current = null
           }
         }
-      }, 5000)
+      }, pollingIntervalRef.current)
       
       return () => {
         if (intervalRef.current) {
@@ -189,10 +223,53 @@ export default function AnalysisPage() {
     )
   }
 
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true)
+    shouldPollRef.current = true
+    const response = await fetch(`http://localhost:8002/dashboard/${analysisId}`)
+    if (response.ok) {
+      const dashboardData = await response.json()
+      setData(dashboardData)
+      if (dashboardData.strengths) {
+        setStrengths(dashboardData.strengths)
+      }
+      if (dashboardData.weaknesses) {
+        setWeaknesses(dashboardData.weaknesses)
+      }
+      setLastUpdate(new Date())
+    }
+    setIsRefreshing(false)
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl font-bold mb-8">تحلیل نقاط قوت و ضعف</h1>
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-3xl font-bold">تحلیل نقاط قوت و ضعف</h1>
+          <div className="flex items-center gap-4">
+            {lastUpdate && (
+              <span className="text-sm text-gray-500">
+                آخرین به‌روزرسانی: {lastUpdate.toLocaleTimeString('fa-IR')}
+              </span>
+            )}
+            <button
+              onClick={handleManualRefresh}
+              disabled={isRefreshing}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {isRefreshing ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  در حال به‌روزرسانی...
+                </>
+              ) : (
+                <>
+                  🔄 به‌روزرسانی
+                </>
+              )}
+            </button>
+          </div>
+        </div>
         
         {data?.status === 'processing' && (
           <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">

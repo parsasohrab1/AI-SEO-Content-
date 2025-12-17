@@ -71,13 +71,25 @@ export default function ContentPage() {
           setContentItems([])
         }
         
-        // Stop polling if analysis is completed or failed
-        if (dashboardData.status === 'completed' || dashboardData.status === 'failed') {
+        // Continue polling even after completion for real-time updates
+        if (dashboardData.status === 'failed') {
           shouldPollRef.current = false
           if (intervalRef.current) {
             clearInterval(intervalRef.current)
             intervalRef.current = null
           }
+        } else if (dashboardData.status === 'completed') {
+          // Reduce polling frequency after completion but keep polling for updates
+          if (intervalRef.current) {
+            clearInterval(intervalRef.current)
+            intervalRef.current = null
+          }
+          // Continue with slower polling (every 10 seconds instead of 5)
+          intervalRef.current = setInterval(() => {
+            if (shouldPollRef.current) {
+              fetchData()
+            }
+          }, 10000)
         }
       } catch (err) {
         console.error('Error:', err)

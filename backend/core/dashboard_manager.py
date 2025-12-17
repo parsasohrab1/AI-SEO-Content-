@@ -345,13 +345,14 @@ class DashboardManager:
             elif title and 'H1' in title:
                 recommendations.append({
                     'id': f'rec_{len(recommendations)}',
-                    'title': 'بهبود ساختار H1',
-                    'description': 'هر صفحه باید دقیقاً یک تگ H1 داشته باشد که موضوع اصلی صفحه را توصیف کند.',
-                    'category': 'ساختار',
+                    'title': 'افزودن تگ H1 به صفحات',
+                    'description': 'هر صفحه باید یک تگ H1 داشته باشد که موضوع اصلی صفحه را مشخص کند.',
+                    'category': 'ساختار محتوا',
                     'priority': 'high',
-                    'impact': 'بهبود سئو و خوانایی',
-                    'estimatedTime': '15-30 دقیقه',
-                    'automated': False
+                    'impact': 'بهبود ساختار و سئو محتوا',
+                    'estimatedTime': '15 دقیقه',
+                    'automated': True,
+                    'type': 'headings'
                 })
             elif title and ('زمان بارگذاری' in title or 'عملکرد' in title):
                 recommendations.append({

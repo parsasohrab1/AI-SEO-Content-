@@ -23,6 +23,8 @@ interface DashboardData {
   }
   strengths?: any[]
   weaknesses?: any[]
+  recommendations?: any[]
+  rank_data?: any
   created_at?: string
   updated_at?: string
 }
@@ -61,13 +63,25 @@ export default function DashboardPage() {
         setData(dashboardData)
         setError(null)
         
-        // Stop polling if analysis is completed AND data is ready, or if failed
-        const hasData = dashboardData.data?.site_analysis || dashboardData.data?.seo_analysis
-        if ((dashboardData.status === 'completed' && hasData) || dashboardData.status === 'failed') {
+        // Continue polling even after completion for real-time updates
+        if (dashboardData.status === 'failed') {
           shouldPollRef.current = false
           if (intervalRef.current) {
             clearInterval(intervalRef.current)
             intervalRef.current = null
+          }
+        } else if (dashboardData.status === 'completed') {
+          // Reduce polling frequency after completion but keep polling for updates
+          const hasData = dashboardData.data?.site_analysis || dashboardData.data?.seo_analysis
+          if (hasData && intervalRef.current) {
+            clearInterval(intervalRef.current)
+            intervalRef.current = null
+            // Continue with slower polling (every 10 seconds instead of 5)
+            intervalRef.current = setInterval(() => {
+              if (shouldPollRef.current) {
+                fetchDashboard()
+              }
+            }, 10000)
           }
         }
       } catch (err) {
@@ -238,6 +252,12 @@ export default function DashboardPage() {
                 className="px-6 py-4 text-gray-600 hover:text-blue-600 hover:border-b-2 hover:border-blue-600"
               >
                 محتوای تولید شده
+              </Link>
+              <Link
+                href={`/dashboard/${analysisId}/rank`}
+                className="px-6 py-4 text-gray-600 hover:text-blue-600 hover:border-b-2 hover:border-blue-600"
+              >
+                رنک سایت
               </Link>
               <Link
                 href={`/dashboard/${analysisId}/apply`}
@@ -869,6 +889,17 @@ export default function DashboardPage() {
               نمایش داده‌های خام (برای توسعه)
             </summary>
             <div className="space-y-4 mt-4">
+              {/* تمام داده‌های داشبورد */}
+              <div>
+                <h3 className="text-md font-semibold mb-2">تمام داده‌های داشبورد:</h3>
+                <div className="bg-gray-50 p-4 rounded-lg overflow-auto max-h-96">
+                  <pre className="text-xs">
+                    {JSON.stringify(data, null, 2)}
+                  </pre>
+                </div>
+              </div>
+              
+              {/* تحلیل سایت */}
               {data.data?.site_analysis && (
                 <div>
                   <h3 className="text-md font-semibold mb-2">تحلیل سایت:</h3>
@@ -879,6 +910,8 @@ export default function DashboardPage() {
                   </div>
                 </div>
               )}
+              
+              {/* تحلیل سئو */}
               {data.data?.seo_analysis && (
                 <div>
                   <h3 className="text-md font-semibold mb-2">تحلیل سئو:</h3>
@@ -887,6 +920,98 @@ export default function DashboardPage() {
                       {JSON.stringify(data.data.seo_analysis, null, 2)}
                     </pre>
                   </div>
+                </div>
+              )}
+              
+              {/* محتوای تولید شده */}
+              {data.data?.generated_content && (
+                <div>
+                  <h3 className="text-md font-semibold mb-2">محتوای تولید شده:</h3>
+                  <div className="bg-gray-50 p-4 rounded-lg overflow-auto max-h-64">
+                    <pre className="text-xs">
+                      {JSON.stringify(data.data.generated_content, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+              )}
+              
+              {/* پیاده‌سازی سئو */}
+              {data.data?.implementation && (
+                <div>
+                  <h3 className="text-md font-semibold mb-2">پیاده‌سازی سئو:</h3>
+                  <div className="bg-gray-50 p-4 rounded-lg overflow-auto max-h-64">
+                    <pre className="text-xs">
+                      {JSON.stringify(data.data.implementation, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+              )}
+              
+              {/* جانمایی محتوا */}
+              {data.data?.placement && (
+                <div>
+                  <h3 className="text-md font-semibold mb-2">جانمایی محتوا:</h3>
+                  <div className="bg-gray-50 p-4 rounded-lg overflow-auto max-h-64">
+                    <pre className="text-xs">
+                      {JSON.stringify(data.data.placement, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+              )}
+              
+              {/* نقاط قوت */}
+              {data.strengths && data.strengths.length > 0 && (
+                <div>
+                  <h3 className="text-md font-semibold mb-2">نقاط قوت:</h3>
+                  <div className="bg-gray-50 p-4 rounded-lg overflow-auto max-h-64">
+                    <pre className="text-xs">
+                      {JSON.stringify(data.strengths, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+              )}
+              
+              {/* نقاط ضعف */}
+              {data.weaknesses && data.weaknesses.length > 0 && (
+                <div>
+                  <h3 className="text-md font-semibold mb-2">نقاط ضعف:</h3>
+                  <div className="bg-gray-50 p-4 rounded-lg overflow-auto max-h-64">
+                    <pre className="text-xs">
+                      {JSON.stringify(data.weaknesses, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+              )}
+              
+              {/* پیشنهادات */}
+              {data.recommendations && data.recommendations.length > 0 && (
+                <div>
+                  <h3 className="text-md font-semibold mb-2">پیشنهادات:</h3>
+                  <div className="bg-gray-50 p-4 rounded-lg overflow-auto max-h-64">
+                    <pre className="text-xs">
+                      {JSON.stringify(data.recommendations, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+              )}
+              
+              {/* رنک */}
+              {data.rank_data && (
+                <div>
+                  <h3 className="text-md font-semibold mb-2">رنک سایت:</h3>
+                  <div className="bg-gray-50 p-4 rounded-lg overflow-auto max-h-64">
+                    <pre className="text-xs">
+                      {JSON.stringify(data.rank_data, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+              )}
+              
+              {/* اگر هیچ داده‌ای موجود نبود */}
+              {!data.data?.site_analysis && !data.data?.seo_analysis && !data.strengths && !data.weaknesses && (
+                <div className="text-center py-8 text-gray-500">
+                  <p>هنوز داده‌ای برای نمایش وجود ندارد.</p>
+                  <p className="text-sm mt-2">داده‌ها به محض آماده شدن در اینجا نمایش داده می‌شوند.</p>
                 </div>
               )}
             </div>

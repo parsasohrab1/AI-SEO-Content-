@@ -38,13 +38,25 @@ export default function SEOPage() {
         setData(dashboardData)
         setError(null)
         
-        // Stop polling if analysis is completed or failed
-        if (dashboardData.status === 'completed' || dashboardData.status === 'failed') {
+        // Continue polling even after completion for real-time updates
+        if (dashboardData.status === 'failed') {
           shouldPollRef.current = false
           if (intervalRef.current) {
             clearInterval(intervalRef.current)
             intervalRef.current = null
           }
+        } else if (dashboardData.status === 'completed') {
+          // Reduce polling frequency after completion but keep polling for updates
+          if (intervalRef.current) {
+            clearInterval(intervalRef.current)
+            intervalRef.current = null
+          }
+          // Continue with slower polling (every 10 seconds instead of 5)
+          intervalRef.current = setInterval(() => {
+            if (shouldPollRef.current) {
+              fetchData()
+            }
+          }, 10000)
         }
       } catch (err) {
         console.error('Error:', err)
@@ -89,6 +101,8 @@ export default function SEOPage() {
   const siteAnalysis = data?.data?.site_analysis || {}
   const technical = seoAnalysis.technical || {}
   const content = seoAnalysis.content || {}
+  const images = seoAnalysis.images || {}
+  const headings = seoAnalysis.headings || {}
   const security = siteAnalysis.security || {}
   const performance = siteAnalysis.performance || {}
   const sitemap = siteAnalysis.sitemap || {}
@@ -188,13 +202,17 @@ export default function SEOPage() {
               <h3 className="text-sm font-medium text-gray-600 mb-2">Keywords</h3>
               {content.keywords && content.keywords.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
-                  {content.keywords.slice(0, 5).map((keyword: string, index: number) => (
-                    <span key={index} className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
-                      {keyword}
-                    </span>
-                  ))}
-                  {content.keywords.length > 5 && (
-                    <span className="text-xs text-gray-500">+{content.keywords.length - 5} بیشتر</span>
+                  {content.keywords.slice(0, 10).map((keyword: any, index: number) => {
+                    const keywordText = typeof keyword === 'string' ? keyword : keyword.word || keyword.keyword || keyword
+                    const keywordCount = typeof keyword === 'object' && keyword.count ? ` (${keyword.count})` : ''
+                    return (
+                      <span key={index} className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
+                        {keywordText}{keywordCount}
+                      </span>
+                    )
+                  })}
+                  {content.keywords.length > 10 && (
+                    <span className="text-xs text-gray-500">+{content.keywords.length - 10} بیشتر</span>
                   )}
                 </div>
               ) : (
@@ -339,6 +357,102 @@ export default function SEOPage() {
             </div>
           )}
         </div>
+
+        {/* Headings Analysis */}
+        {headings && Object.keys(headings).length > 0 && (
+          <div className="bg-white rounded-lg shadow p-6 mb-6">
+            <h2 className="text-xl font-semibold mb-4">تحلیل سرفصل‌ها</h2>
+            
+            {headings.total && (
+              <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-4">
+                {Object.entries(headings.total).map(([level, count]: [string, any]) => (
+                  <div key={level} className="p-3 bg-gray-50 rounded-lg text-center">
+                    <div className="text-2xl font-bold text-gray-900">{count || 0}</div>
+                    <div className="text-xs text-gray-600 uppercase">{level}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {headings.pages_without_h1 && headings.pages_without_h1.length > 0 && (
+              <div className="p-4 bg-yellow-50 border-r-4 border-yellow-500 rounded mb-3">
+                <p className="font-medium text-yellow-900 mb-2">
+                  {headings.pages_without_h1.length} صفحه بدون H1
+                </p>
+                <p className="text-sm text-yellow-700">
+                  هر صفحه باید یک تگ H1 داشته باشد.
+                </p>
+              </div>
+            )}
+            
+            {headings.pages_with_multiple_h1 && headings.pages_with_multiple_h1.length > 0 && (
+              <div className="p-4 bg-orange-50 border-r-4 border-orange-500 rounded">
+                <p className="font-medium text-orange-900 mb-2">
+                  {headings.pages_with_multiple_h1.length} صفحه با چند H1
+                </p>
+                <p className="text-sm text-orange-700">
+                  هر صفحه باید فقط یک تگ H1 داشته باشد.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Images Analysis */}
+        {images && Object.keys(images).length > 0 && (
+          <div className="bg-white rounded-lg shadow p-6 mb-6">
+            <h2 className="text-xl font-semibold mb-4">تحلیل تصاویر</h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <div className="text-2xl font-bold text-gray-900">{images.total || 0}</div>
+                <div className="text-sm text-gray-600">کل تصاویر</div>
+              </div>
+              <div className="p-4 bg-green-50 rounded-lg">
+                <div className="text-2xl font-bold text-green-900">{images.with_alt || 0}</div>
+                <div className="text-sm text-gray-600">با Alt Text</div>
+              </div>
+              <div className="p-4 bg-red-50 rounded-lg">
+                <div className="text-2xl font-bold text-red-900">{images.without_alt || 0}</div>
+                <div className="text-sm text-gray-600">بدون Alt Text</div>
+              </div>
+              <div className="p-4 bg-blue-50 rounded-lg">
+                <div className="text-2xl font-bold text-blue-900">{images.alt_coverage || 0}%</div>
+                <div className="text-sm text-gray-600">پوشش Alt Text</div>
+              </div>
+            </div>
+            
+            {images.without_alt > 0 && (
+              <div className="p-4 bg-yellow-50 border-r-4 border-yellow-500 rounded">
+                <p className="font-medium text-yellow-900">
+                  {images.without_alt} تصویر بدون Alt Text
+                </p>
+                <p className="text-sm text-yellow-700 mt-1">
+                  تصاویر بدون alt text برای سئو مناسب نیستند. لطفاً alt text به تمام تصاویر اضافه کنید.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Pages Analyzed */}
+        {seoAnalysis.pages_analyzed && (
+          <div className="bg-white rounded-lg shadow p-6 mb-6">
+            <h2 className="text-xl font-semibold mb-4">صفحات تحلیل شده</h2>
+            <div className="flex items-center gap-4">
+              <div className="p-4 bg-blue-50 rounded-lg">
+                <div className="text-2xl font-bold text-blue-900">{seoAnalysis.pages_analyzed}</div>
+                <div className="text-sm text-gray-600">صفحات تحلیل شده</div>
+              </div>
+              {seoAnalysis.total_pages_found && (
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <div className="text-2xl font-bold text-gray-900">{seoAnalysis.total_pages_found}</div>
+                  <div className="text-sm text-gray-600">کل صفحات یافت شده</div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* SEO Issues */}
         {seoAnalysis.issues && seoAnalysis.issues.length > 0 && (

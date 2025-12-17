@@ -21,6 +21,8 @@ export default function RecommendationsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [recommendations, setRecommendations] = useState<Recommendation[]>([])
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
   const shouldPollRef = useRef<boolean>(true)
 
@@ -48,18 +50,32 @@ export default function RecommendationsPage() {
         const dashboardData = await response.json()
         setData(dashboardData)
         setError(null)
+        setLastUpdate(new Date())
+        setIsRefreshing(false)
         
         // استخراج پیشنهادات از داده‌ها
         const recs = generateRecommendations(dashboardData)
         setRecommendations(recs)
         
-        // Stop polling if analysis is completed or failed
-        if (dashboardData.status === 'completed' || dashboardData.status === 'failed') {
+        // Continue polling even after completion for real-time updates
+        if (dashboardData.status === 'failed') {
           shouldPollRef.current = false
           if (intervalRef.current) {
             clearInterval(intervalRef.current)
             intervalRef.current = null
           }
+        } else if (dashboardData.status === 'completed') {
+          // Reduce polling frequency after completion but keep polling for updates
+          if (intervalRef.current) {
+            clearInterval(intervalRef.current)
+            intervalRef.current = null
+          }
+          // Continue with slower polling (every 10 seconds instead of 5)
+          intervalRef.current = setInterval(() => {
+            if (shouldPollRef.current) {
+              fetchData()
+            }
+          }, 10000)
         }
       } catch (err) {
         console.error('Error:', err)
@@ -339,10 +355,49 @@ export default function RecommendationsPage() {
     )
   }
 
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true)
+    shouldPollRef.current = true
+    const response = await fetch(`http://localhost:8002/dashboard/${analysisId}`)
+    if (response.ok) {
+      const dashboardData = await response.json()
+      setData(dashboardData)
+      const recs = generateRecommendations(dashboardData)
+      setRecommendations(recs)
+      setLastUpdate(new Date())
+    }
+    setIsRefreshing(false)
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl font-bold mb-8">پیشنهادات و اصلاحات</h1>
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-3xl font-bold">پیشنهادات و اصلاحات</h1>
+          <div className="flex items-center gap-4">
+            {lastUpdate && (
+              <span className="text-sm text-gray-500">
+                آخرین به‌روزرسانی: {lastUpdate.toLocaleTimeString('fa-IR')}
+              </span>
+            )}
+            <button
+              onClick={handleManualRefresh}
+              disabled={isRefreshing}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {isRefreshing ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  در حال به‌روزرسانی...
+                </>
+              ) : (
+                <>
+                  🔄 به‌روزرسانی
+                </>
+              )}
+            </button>
+          </div>
+        </div>
         
         {data?.status === 'processing' && (
           <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
