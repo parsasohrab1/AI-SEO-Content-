@@ -75,7 +75,7 @@ class DashboardManager:
             return
         
         # جدا کردن فیلدهای سطح dashboard از فیلدهای data
-        dashboard_level_fields = ['applied_fixes', 'last_applied_at', 'status']
+        dashboard_level_fields = ['applied_fixes', 'last_applied_at', 'status', 'cms_credentials', 'competitor_analysis', 'suggested_content', 'suggested_content_keywords', 'suggested_content_created_at']
         data_level_fields = {}
         
         for key, value in data.items():

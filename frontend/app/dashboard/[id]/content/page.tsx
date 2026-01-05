@@ -27,9 +27,45 @@ export default function ContentPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [contentItems, setContentItems] = useState<ContentItem[]>([])
+  const [suggestedContent, setSuggestedContent] = useState<ContentItem[]>([])
+  const [selectedKeywords, setSelectedKeywords] = useState<string[]>([])
   const [selectedContent, setSelectedContent] = useState<ContentItem | null>(null)
+  const [selectedSuggestedContent, setSelectedSuggestedContent] = useState<Set<string>>(new Set())
+  const [generating, setGenerating] = useState(false)
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
   const shouldPollRef = useRef<boolean>(true)
+
+  useEffect(() => {
+    // بارگذاری کلمات کلیدی انتخاب شده از localStorage
+    const savedKeywords = localStorage.getItem(`selected_keywords_${analysisId}`)
+    if (savedKeywords) {
+      try {
+        const keywordsData = JSON.parse(savedKeywords)
+        const keywords = keywordsData.map((kw: any) => kw.keyword || kw)
+        setSelectedKeywords(keywords)
+      } catch (e) {
+        console.error('Error parsing saved keywords:', e)
+      }
+    }
+    
+    // بارگذاری محتوای پیشنهادی از dashboard
+    const fetchSuggestedContent = async () => {
+      try {
+        const response = await fetch(`http://localhost:8002/dashboard/${analysisId}`)
+        if (response.ok) {
+          const dashboardData = await response.json()
+          const suggested = dashboardData.suggested_content
+          if (suggested && suggested.content_items) {
+            setSuggestedContent(suggested.content_items)
+          }
+        }
+      } catch (e) {
+        console.error('Error fetching suggested content:', e)
+      }
+    }
+    
+    fetchSuggestedContent()
+  }, [analysisId])
 
   useEffect(() => {
     const fetchData = async () => {
@@ -69,6 +105,12 @@ export default function ContentPage() {
           }
         } else {
           setContentItems([])
+        }
+        
+        // استخراج محتوای پیشنهادی
+        const suggested = dashboardData.suggested_content
+        if (suggested && suggested.content_items) {
+          setSuggestedContent(suggested.content_items)
         }
         
         // Continue polling even after completion for real-time updates
@@ -160,6 +202,71 @@ export default function ContentPage() {
         return '🎥'
       default:
         return '📄'
+    }
+  }
+
+  const handleGenerateSuggestedContent = async () => {
+    if (selectedKeywords.length === 0) {
+      alert('لطفاً ابتدا کلمات کلیدی را از صفحه "تحلیل رقبا" انتخاب کنید')
+      return
+    }
+
+    setGenerating(true)
+    try {
+      const response = await fetch(`http://localhost:8002/dashboard/${analysisId}/generate-content-by-keywords`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          keywords: selectedKeywords,
+          content_types: ['text'],
+          language: 'fa'
+        })
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.detail || 'خطا در تولید محتوا')
+      }
+
+      const result = await response.json()
+      setSuggestedContent(result.content.content_items || [])
+      alert(`✅ ${result.message}`)
+      
+      // به‌روزرسانی داده‌ها
+      const refreshResponse = await fetch(`http://localhost:8002/dashboard/${analysisId}`)
+      if (refreshResponse.ok) {
+        const refreshData = await refreshResponse.json()
+        const suggested = refreshData.suggested_content
+        if (suggested && suggested.content_items) {
+          setSuggestedContent(suggested.content_items)
+        }
+      }
+    } catch (err) {
+      alert('خطا در تولید محتوا: ' + (err instanceof Error ? err.message : 'خطای نامشخص'))
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  const handleToggleSuggestedContent = (contentId: string) => {
+    setSelectedSuggestedContent(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(contentId)) {
+        newSet.delete(contentId)
+      } else {
+        newSet.add(contentId)
+      }
+      return newSet
+    })
+  }
+
+  const handleSelectAllSuggested = () => {
+    if (selectedSuggestedContent.size === suggestedContent.length) {
+      setSelectedSuggestedContent(new Set())
+    } else {
+      setSelectedSuggestedContent(new Set(suggestedContent.map(item => item.id || '').filter(Boolean)))
     }
   }
 
@@ -260,6 +367,130 @@ export default function ContentPage() {
             </p>
           </div>
         </div>
+
+        {/* کلمات کلیدی انتخاب شده */}
+        {selectedKeywords.length > 0 && (
+          <div className="bg-white rounded-lg shadow p-6 mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold">کلمات کلیدی انتخاب شده از رقبا</h2>
+              <Link
+                href={`/dashboard/${analysisId}/competitors`}
+                className="text-blue-600 hover:text-blue-800 text-sm"
+              >
+                تغییر کلمات کلیدی →
+              </Link>
+            </div>
+            <div className="flex flex-wrap gap-2 mb-4">
+              {selectedKeywords.map((keyword, index) => (
+                <span
+                  key={index}
+                  className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium"
+                >
+                  {keyword}
+                </span>
+              ))}
+            </div>
+            <button
+              onClick={handleGenerateSuggestedContent}
+              disabled={generating}
+              className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium"
+            >
+              {generating ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white inline-block mr-2"></div>
+                  در حال تولید محتوا...
+                </>
+              ) : (
+                '✨ تولید محتوای پیشنهادی بر اساس کلمات کلیدی'
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* محتوای پیشنهادی */}
+        {suggestedContent.length > 0 && (
+          <div className="bg-white rounded-lg shadow p-6 mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold">
+                محتوای پیشنهادی بر اساس کلمات کلیدی ({suggestedContent.length})
+              </h2>
+              <button
+                onClick={handleSelectAllSuggested}
+                className="px-4 py-2 text-blue-600 hover:text-blue-800 text-sm font-medium"
+              >
+                {selectedSuggestedContent.size === suggestedContent.length ? 'لغو انتخاب همه' : 'انتخاب همه'}
+              </button>
+            </div>
+            {selectedSuggestedContent.size > 0 && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <p className="font-semibold text-blue-900">
+                  {selectedSuggestedContent.size} محتوا انتخاب شده
+                </p>
+                <p className="text-sm text-blue-700 mt-1">
+                  محتواهای انتخاب شده را می‌توانید برای انتشار استفاده کنید
+                </p>
+              </div>
+            )}
+            <div className="space-y-4">
+              {suggestedContent.map((item: ContentItem, index: number) => {
+                const isSelected = selectedSuggestedContent.has(item.id || '')
+                return (
+                  <div
+                    key={item.id || index}
+                    className={`border rounded-lg p-4 transition-all ${
+                      isSelected
+                        ? 'border-green-500 bg-green-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-start gap-4">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => handleToggleSuggestedContent(item.id || '')}
+                        className="mt-1 w-5 h-5 text-green-600 rounded focus:ring-green-500"
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          {item.type && (
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${getContentTypeColor(item.type)}`}>
+                              {getContentTypeIcon(item.type)} {item.type}
+                            </span>
+                          )}
+                          <span className="px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800">
+                            پیشنهادی
+                          </span>
+                        </div>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                          {item.title || `محتوا ${index + 1}`}
+                        </h3>
+                        {item.content && (
+                          <p className="text-gray-600 text-sm mb-3 line-clamp-3">
+                            {item.content.substring(0, 200)}...
+                          </p>
+                        )}
+                        <div className="flex flex-wrap gap-4 text-sm text-gray-500">
+                          {item.word_count && (
+                            <span>📊 {item.word_count.toLocaleString()} کلمه</span>
+                          )}
+                          {item.keywords && item.keywords.length > 0 && (
+                            <span>🔑 {item.keywords.join(', ')}</span>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setSelectedContent(item)}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                      >
+                        مشاهده کامل
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Content Types Summary */}
         {contentTypes.length > 0 && (

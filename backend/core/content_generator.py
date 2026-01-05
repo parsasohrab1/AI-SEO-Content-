@@ -15,6 +15,144 @@ logger = logging.getLogger(__name__)
 class ContentGenerator:
     """کلاس تولید محتوا"""
     
+    async def generate_by_keywords(
+        self,
+        keywords: List[str],
+        site_url: str,
+        content_types: List[str] = ['text'],
+        language: str = 'fa'
+    ) -> Dict[str, Any]:
+        """
+        تولید محتوا بر اساس کلمات کلیدی انتخاب شده
+        
+        Args:
+            keywords: لیست کلمات کلیدی انتخاب شده
+            site_url: آدرس سایت
+            content_types: انواع محتوای مورد نیاز
+            language: زبان محتوا
+            
+        Returns:
+            محتوای تولید شده
+        """
+        logger.info(f"Generating content for keywords: {keywords[:10]}")
+        
+        content_items = []
+        total_words = 0
+        
+        # تولید محتوای متنی برای هر کلمه کلیدی
+        if 'text' in content_types or 'article' in content_types:
+            for keyword in keywords[:10]:  # حداکثر 10 کلمه کلیدی
+                text_content = await self._generate_text_content_for_keyword(
+                    keyword, site_url, language
+                )
+                content_items.extend(text_content)
+                total_words += sum(item.get('word_count', 0) for item in text_content)
+        
+        # تولید محتوای تصویری
+        if 'image' in content_types:
+            image_content = await self._generate_image_content(site_url, keywords, language)
+            content_items.extend(image_content)
+        
+        # تولید محتوای ویدیویی
+        if 'video' in content_types:
+            video_content = await self._generate_video_content(site_url, keywords, language)
+            content_items.extend(video_content)
+        
+        return {
+            'content_items': content_items,
+            'total_items': len(content_items),
+            'total_words': total_words,
+            'keywords_used': keywords,
+            'content_types': content_types,
+            'generated_at': datetime.now().isoformat()
+        }
+    
+    async def _generate_text_content_for_keyword(
+        self,
+        keyword: str,
+        site_url: str,
+        language: str = 'fa'
+    ) -> List[Dict[str, Any]]:
+        """تولید محتوای متنی برای یک کلمه کلیدی خاص"""
+        content_items = []
+        
+        # تولید عنوان
+        if language == 'fa':
+            title = f"راهنمای کامل {keyword}: همه چیز که باید بدانید"
+            description = f"در این مقاله به بررسی جامع {keyword} می‌پردازیم و تمام نکات مهم را پوشش می‌دهیم."
+        else:
+            title = f"Complete Guide to {keyword}: Everything You Need to Know"
+            description = f"In this article, we provide a comprehensive overview of {keyword} and cover all important aspects."
+        
+        # تولید محتوا
+        if language == 'fa':
+            content = f"""
+# {title}
+
+{description}
+
+## مقدمه
+
+{keyword} یکی از موضوعات مهم و کاربردی در حوزه دیجیتال است. در این مقاله قصد داریم به بررسی کامل این موضوع بپردازیم.
+
+## اهمیت {keyword}
+
+{keyword} نقش مهمی در بهبود عملکرد و بهینه‌سازی دارد. با استفاده صحیح از {keyword} می‌توانید نتایج بهتری کسب کنید.
+
+## کاربردهای {keyword}
+
+- استفاده در بهینه‌سازی
+- بهبود عملکرد
+- افزایش کارایی
+- توسعه و پیشرفت
+
+## نتیجه‌گیری
+
+در این مقاله به بررسی {keyword} پرداختیم و نکات مهم را بررسی کردیم. امیدواریم این مطالب برای شما مفید بوده باشد.
+"""
+        else:
+            content = f"""
+# {title}
+
+{description}
+
+## Introduction
+
+{keyword} is one of the important and practical topics in the digital field. In this article, we intend to provide a comprehensive review of this topic.
+
+## Importance of {keyword}
+
+{keyword} plays an important role in improving performance and optimization. By using {keyword} correctly, you can achieve better results.
+
+## Applications of {keyword}
+
+- Use in optimization
+- Performance improvement
+- Increased efficiency
+- Development and progress
+
+## Conclusion
+
+In this article, we reviewed {keyword} and examined important points. We hope this content has been useful for you.
+"""
+        
+        word_count = len(content.split())
+        
+        content_items.append({
+            'id': f"content_{hash(keyword)}_{datetime.now().timestamp()}",
+            'title': title,
+            'content': content,
+            'type': 'article',
+            'word_count': word_count,
+            'keywords': [keyword],
+            'status': 'suggested',
+            'created_at': datetime.now().isoformat(),
+            'seo_score': 85,
+            'description': description
+        })
+        
+        return content_items
+
     async def generate_all(
         self,
         site_analysis: Dict[str, Any],

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { ErrorBoundary } from './error-boundary'
+import { ErrorSuppressor } from './components/ErrorSuppressor'
 
 export const metadata: Metadata = {
   title: 'AI Content Factory Pro',
@@ -20,6 +21,7 @@ export default function RootLayout({
   return (
     <html lang="fa" dir="rtl">
       <body suppressHydrationWarning>
+        <ErrorSuppressor />
         <ErrorBoundary>
           {children}
         </ErrorBoundary>

@@ -265,6 +265,12 @@ export default function DashboardPage() {
               >
                 اجرای پیشنهادات
               </Link>
+              <Link
+                href={`/dashboard/${analysisId}/competitors`}
+                className="px-6 py-4 text-gray-600 hover:text-blue-600 hover:border-b-2 hover:border-blue-600"
+              >
+                تحلیل رقبا
+              </Link>
             </nav>
           </div>
         </div>

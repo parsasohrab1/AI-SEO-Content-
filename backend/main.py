@@ -264,6 +264,109 @@ async def get_seo_report(analysis_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/dashboard/{analysis_id}/analyze-competitors")
+async def analyze_competitors(analysis_id: str, request_data: Dict):
+    """تحلیل رقبا و استخراج کلمات کلیدی"""
+    try:
+        from core.dashboard_manager import DashboardManager
+        from core.competitor_analyzer import CompetitorAnalyzer
+        
+        dashboard_manager = DashboardManager()
+        dashboard_data = await dashboard_manager.get_dashboard_data(analysis_id)
+        
+        if not dashboard_data:
+            raise HTTPException(
+                status_code=404,
+                detail="Dashboard یافت نشد. لطفاً یک تحلیل جدید ایجاد کنید."
+            )
+        
+        site_url = dashboard_data.get('site_url', '')
+        if not site_url:
+            raise HTTPException(status_code=400, detail="Site URL not found")
+        
+        # دریافت لیست رقبا از درخواست یا پیدا کردن خودکار
+        competitor_urls = request_data.get('competitor_urls', [])
+        industry_keywords = request_data.get('industry_keywords', [])
+        
+        competitor_analyzer = CompetitorAnalyzer()
+        
+        # اگر رقبا داده نشده، پیدا کردن خودکار
+        if not competitor_urls:
+            competitor_urls = await competitor_analyzer.find_competitors(site_url, industry_keywords)
+        
+        # تحلیل رقبا
+        analysis_result = await competitor_analyzer.analyze_multiple_competitors(competitor_urls)
+        
+        # دریافت کلمات کلیدی برای انتخاب
+        keywords_for_selection = await competitor_analyzer.get_competitor_keywords_for_selection(competitor_urls)
+        
+        # ذخیره در dashboard
+        await dashboard_manager.update_dashboard(
+            analysis_id,
+            {
+                'competitor_analysis': {
+                    'competitors': analysis_result['competitors'],
+                    'keywords': keywords_for_selection,
+                    'total_competitors': analysis_result['total_competitors_analyzed'],
+                    'total_keywords': analysis_result['total_keywords_found'],
+                    'analyzed_at': datetime.now().isoformat()
+                }
+            }
+        )
+        
+        return {
+            'message': f'{len(competitor_urls)} رقیب تحلیل شد و {len(keywords_for_selection)} کلمه کلیدی استخراج شد',
+            'competitors': analysis_result['competitors'],
+            'keywords': keywords_for_selection,
+            'total_competitors': analysis_result['total_competitors_analyzed'],
+            'total_keywords': len(keywords_for_selection)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error analyzing competitors: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/dashboard/{analysis_id}/competitor-keywords")
+async def get_competitor_keywords(analysis_id: str):
+    """دریافت کلمات کلیدی رقبا برای نمایش"""
+    try:
+        from core.dashboard_manager import DashboardManager
+        
+        dashboard_manager = DashboardManager()
+        dashboard_data = await dashboard_manager.get_dashboard_data(analysis_id)
+        
+        if not dashboard_data:
+            raise HTTPException(
+                status_code=404,
+                detail="Dashboard یافت نشد."
+            )
+        
+        competitor_analysis = dashboard_data.get('competitor_analysis', {})
+        
+        if not competitor_analysis:
+            return {
+                'keywords': [],
+                'competitors': [],
+                'message': 'هنوز تحلیل رقبا انجام نشده است'
+            }
+        
+        return {
+            'keywords': competitor_analysis.get('keywords', []),
+            'competitors': competitor_analysis.get('competitors', []),
+            'total_competitors': competitor_analysis.get('total_competitors', 0),
+            'total_keywords': competitor_analysis.get('total_keywords', 0)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting competitor keywords: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # Additional Endpoints
 @app.post("/dashboard/{analysis_id}/save-credentials")
 async def save_cms_credentials(analysis_id: str, request_data: Dict):
@@ -972,6 +1075,62 @@ async def get_site_rank(analysis_id: str):
         raise
     except Exception as e:
         logger.error(f"Error getting site rank: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/dashboard/{analysis_id}/generate-content-by-keywords")
+async def generate_content_by_keywords(analysis_id: str, request_data: Dict):
+    """تولید محتوا بر اساس کلمات کلیدی انتخاب شده از رقبا"""
+    try:
+        from core.dashboard_manager import DashboardManager
+        from core.content_generator import ContentGenerator
+        
+        dashboard_manager = DashboardManager()
+        dashboard_data = await dashboard_manager.get_dashboard_data(analysis_id)
+        
+        if not dashboard_data:
+            raise HTTPException(
+                status_code=404,
+                detail="Dashboard یافت نشد."
+            )
+        
+        site_url = dashboard_data.get('site_url', '')
+        keywords = request_data.get('keywords', [])
+        content_types = request_data.get('content_types', ['text'])
+        language = request_data.get('language', 'fa')
+        
+        if not keywords:
+            raise HTTPException(status_code=400, detail="کلمات کلیدی انتخاب نشده است")
+        
+        # تولید محتوا بر اساس کلمات کلیدی
+        generator = ContentGenerator()
+        generated_content = await generator.generate_by_keywords(
+            keywords,
+            site_url,
+            content_types,
+            language
+        )
+        
+        # ذخیره محتوای پیشنهادی
+        await dashboard_manager.update_dashboard(
+            analysis_id,
+            {
+                'suggested_content': generated_content,
+                'suggested_content_keywords': keywords,
+                'suggested_content_created_at': datetime.now().isoformat()
+            }
+        )
+        
+        return {
+            'message': f'محتوای پیشنهادی برای {len(keywords)} کلمه کلیدی تولید شد',
+            'content': generated_content,
+            'keywords_used': keywords
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error generating content by keywords: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
