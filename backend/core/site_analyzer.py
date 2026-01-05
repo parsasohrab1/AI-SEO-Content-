@@ -43,12 +43,15 @@ class SiteAnalyzer:
             Dict شامل تمام اطلاعات تحلیل شده
         """
         logger.info(f"Starting site analysis for: {url}")
+        logger.info(f"Making real HTTP request to: {url} (not using cached data)")
         
         # اعتبارسنجی URL
         validated_url = self.validate_url(url)
         
         # دریافت صفحه اصلی
+        logger.info(f"Fetching page content from: {validated_url}")
         html_content = await self.fetch_page(validated_url)
+        logger.info(f"Successfully fetched {len(html_content)} characters of HTML content")
         
         # تحلیل‌های مختلف
         cms_info = await self.detect_cms(html_content, validated_url)
@@ -95,9 +98,12 @@ class SiteAnalyzer:
     
     async def fetch_page(self, url: str) -> str:
         """دریافت محتوای صفحه"""
+        logger.info(f"Making HTTP GET request to: {url} (real internet request, not cached)")
         try:
             response = await self.client.get(url)
+            logger.info(f"HTTP Response Status: {response.status_code} for {url}")
             response.raise_for_status()
+            logger.info(f"Successfully fetched page content (length: {len(response.text)} chars) from internet")
             return response.text
         except httpx.HTTPError as e:
             # اگر خطای SSL بود، سعی می‌کنیم با HTTP (بدون SSL) تلاش کنیم
@@ -433,9 +439,11 @@ class SiteAnalyzer:
             # Payment Gateways
             'zarinpal': {'name': 'افزونه پرداخت امن زرین‌پال برای ووکامرس', 'category': 'Payment'},
             'zarinpal-woocommerce': {'name': 'افزونه پرداخت امن زرین‌پال برای ووکامرس', 'category': 'Payment'},
+            'woocommerce-zarinpal': {'name': 'افزونه پرداخت امن زرین‌پال برای ووکامرس', 'category': 'Payment'},
             # Calendar
             'persian-calendar': {'name': 'تقویم فارسی', 'category': 'Localization'},
             'shamsi': {'name': 'تقویم فارسی', 'category': 'Localization'},
+            'persian-calendar-lite': {'name': 'تقویم فارسی', 'category': 'Localization'},
             # Backup & Migration
             'duplicator': {'name': 'تکثیرکننده', 'category': 'Backup'},
             'advanced-database-cleaner': {'name': 'Advanced Database Cleaner', 'category': 'Database'},
@@ -444,11 +452,14 @@ class SiteAnalyzer:
             'digits-login': {'name': 'دیجیتس: عضویت و ورود با شماره موبایل', 'category': 'User Management'},
             'digits-addon': {'name': 'دیجیتس: افزودنی فرم مشترک ورود/عضویت', 'category': 'User Management'},
             'digits-addon-merasaweb': {'name': 'دیجیتس: افزودنی فرم مشترک ورود/عضویت- مرسا وب', 'category': 'User Management'},
+            'digits-addon-merasa-web': {'name': 'دیجیتس: افزودنی فرم مشترک ورود/عضویت- مرسا وب', 'category': 'User Management'},
             # WooCommerce Extensions
             'woocommerce-invoice-pro': {'name': 'فاکتور حرفه‌ای ووکامرس', 'category': 'E-commerce'},
+            'woocommerce-invoice': {'name': 'فاکتور حرفه‌ای ووکامرس', 'category': 'E-commerce'},
             'woocommerce-checkout-field-editor': {'name': 'ویرایشگر فرم پرداخت برای ووکامرس', 'category': 'E-commerce'},
             'thwcfe': {'name': 'ویرایشگر فرم پرداخت برای ووکامرس', 'category': 'E-commerce'},
             'woocommerce-sms': {'name': 'پیامک حرفه ای ووکامرس', 'category': 'E-commerce'},
+            'woocommerce-persian-sms': {'name': 'پیامک حرفه ای ووکامرس', 'category': 'E-commerce'},
             'woocommerce-persian': {'name': 'ووکامرس فارسی', 'category': 'E-commerce'},
             'persian-woodmart': {'name': 'فارسی ساز وودمارت', 'category': 'Theme Support'},
             # Email Marketing
@@ -530,16 +541,97 @@ class SiteAnalyzer:
             'wp-google-analytics-events': {'name': 'WP Google Analytics Events', 'category': 'Analytics'},
         }
         
-        # جستجو در script و link tags
-        all_tags = soup.find_all(['script', 'link', 'style'], src=True)
-        all_tags.extend(soup.find_all(['script', 'link'], href=True))
-        
-        # همچنین جستجو در تمام محتوای HTML برای پیدا کردن همه پلاگین‌ها
+        # استخراج همه plugin slugs از کل HTML - روش اصلی و دقیق
         html_lower = html_content.lower()
         
-        # استخراج همه plugin slugs از wp-content/plugins/
-        all_plugin_slugs = set(re.findall(r'wp-content/plugins/([^/]+)', html_lower))
+        # الگوهای مختلف برای پیدا کردن plugin slugs - بهبود یافته
+        # 1. wp-content/plugins/plugin-name/
+        # 2. plugins/plugin-name/
+        # 3. wp-content/plugins/plugin-name.js/css
+        # 4. wp-content/plugins/plugin-name/assets/
+        # الگوهای جامع‌تر برای پیدا کردن plugin slugs
+        plugin_patterns = [
+            r'wp-content/plugins/([^/\s"\'<>?&]+)',
+            r'plugins/([^/\s"\'<>?&]+)',
+            r'/plugins/([^/\s"\'<>?&]+)/',
+            r'wp-content/plugins/([^/\s"\'<>?&]+)/assets',
+            r'wp-content/plugins/([^/\s"\'<>?&]+)/includes',
+            r'wp-content/plugins/([^/\s"\'<>?&]+)/js',
+            r'wp-content/plugins/([^/\s"\'<>?&]+)/css',
+            r'wp-content/plugins/([^/\s"\'<>?&]+)/admin',
+            r'wp-content/plugins/([^/\s"\'<>?&]+)/public',
+            r'wp-content/plugins/([^/\s"\'<>?&]+)/src',
+            r'wp-content/plugins/([^/\s"\'<>?&]+)/dist',
+            r'wp-content/plugins/([^/\s"\'<>?&]+)/build',
+            r'wp-content/plugins/([^/\s"\'<>?&]+)/lib',
+            r'wp-content/plugins/([^/\s"\'<>?&]+)/core',
+        ]
         
+        all_plugin_slugs = set()
+        for pattern in plugin_patterns:
+            matches = re.findall(pattern, html_lower)
+            all_plugin_slugs.update(matches)
+        
+        # همچنین جستجو در script و link tags و تمام attributes
+        all_tags = soup.find_all(['script', 'link', 'style', 'img', 'div', 'span'], src=True)
+        all_tags.extend(soup.find_all(['script', 'link', 'a'], href=True))
+        all_tags.extend(soup.find_all(['link'], rel=True))
+        
+        for tag in all_tags:
+            # بررسی تمام attributes
+            for attr_name in ['src', 'href', 'data-src', 'data-href', 'data-url', 'data-plugin']:
+                src = tag.get(attr_name, '')
+                if src:
+                    src_lower = str(src).lower()
+                    plugin_match = re.search(r'wp-content/plugins/([^/\s"\'<>?&]+)', src_lower)
+                    if plugin_match:
+                        slug = plugin_match.group(1)
+                        # حذف پسوند فایل
+                        slug = slug.split('.')[0] if '.' in slug else slug
+                        all_plugin_slugs.add(slug)
+        
+        # جستجو در تمام data attributes و inline styles
+        for tag in soup.find_all(True):
+            for attr_name, attr_value in tag.attrs.items():
+                if isinstance(attr_value, (list, tuple)):
+                    attr_value = ' '.join(str(v) for v in attr_value)
+                attr_str = str(attr_value).lower()
+                if 'wp-content/plugins' in attr_str:
+                    matches = re.findall(r'wp-content/plugins/([^/\s"\'<>?&]+)', attr_str)
+                    for match in matches:
+                        slug = match.split('.')[0] if '.' in match else match
+                        all_plugin_slugs.add(slug)
+        
+        # حذف کلمات رایج که plugin نیستند
+        excluded_words = {
+            'wp-content', 'wp-includes', 'wp-admin', 'themes', 'uploads', 
+            'index', 'style', 'script', 'assets', 'includes', 'js', 'css',
+            'images', 'fonts', 'admin', 'public', 'vendor', 'src', 'dist',
+            'build', 'lib', 'libs', 'core', 'framework', 'base', 'common',
+            'min', 'map', 'bundle', 'chunk'
+        }
+        
+        # فیلتر کردن plugin slugs
+        filtered_slugs = set()
+        for slug in all_plugin_slugs:
+            slug_clean = slug.strip()
+            # حذف پسوندها
+            if '.' in slug_clean:
+                slug_clean = slug_clean.split('.')[0]
+            
+            if (slug_clean not in excluded_words 
+                and len(slug_clean) > 2 
+                and not slug_clean.startswith('.')
+                and not slug_clean.endswith('.js')
+                and not slug_clean.endswith('.css')
+                and not slug_clean.endswith('.min')
+                and (slug_clean.replace('-', '').replace('_', '').isalnum() or any(c.isalpha() for c in slug_clean))):
+                filtered_slugs.add(slug_clean)
+        
+        all_plugin_slugs = filtered_slugs
+        logger.info(f"Found {len(all_plugin_slugs)} unique plugin slugs in HTML: {sorted(list(all_plugin_slugs))[:30]}")
+        
+        # پردازش هر plugin slug
         for plugin_slug in all_plugin_slugs:
             if plugin_slug in detected_plugins:
                 continue
@@ -548,19 +640,36 @@ class SiteAnalyzer:
             plugin_info = None
             plugin_slug_normalized = plugin_slug.replace('-', '').replace('_', '').lower()
             
+            # تطبیق دقیق‌تر با لیست
+            best_match = None
+            best_match_score = 0
+            
             for key, info in common_plugins.items():
                 key_normalized = key.replace('-', '').replace('_', '').lower()
-                # تطبیق دقیق‌تر
-                if (key_normalized == plugin_slug_normalized or 
-                    key_normalized in plugin_slug_normalized or 
-                    plugin_slug_normalized in key_normalized or
-                    key.replace('-', '') in plugin_slug.replace('-', '') or
-                    plugin_slug.replace('-', '') in key.replace('-', '')):
-                    plugin_info = info.copy()
-                    plugin_info['slug'] = plugin_slug
-                    break
+                
+                # محاسبه امتیاز تطبیق
+                score = 0
+                if key_normalized == plugin_slug_normalized:
+                    score = 100  # تطبیق کامل
+                elif key_normalized in plugin_slug_normalized:
+                    score = 80  # key در plugin_slug است
+                elif plugin_slug_normalized in key_normalized:
+                    score = 60  # plugin_slug در key است
+                elif key.replace('-', '') in plugin_slug.replace('-', ''):
+                    score = 40
+                elif plugin_slug.replace('-', '') in key.replace('-', ''):
+                    score = 30
+                
+                if score > best_match_score:
+                    best_match_score = score
+                    best_match = (key, info)
             
-            if not plugin_info:
+            # اگر تطبیق خوبی پیدا شد، استفاده می‌کنیم - کاهش threshold
+            if best_match and best_match_score >= 20:  # کاهش از 30 به 20
+                key, info = best_match
+                plugin_info = info.copy()
+                plugin_info['slug'] = plugin_slug
+            else:
                 # اگر در لیست نبود، از slug استفاده می‌کنیم
                 plugin_name = plugin_slug.replace('-', ' ').replace('_', ' ').title()
                 plugin_info = {
@@ -572,150 +681,144 @@ class SiteAnalyzer:
             detected_plugins.add(plugin_slug)
             plugins.append(plugin_info)
         
-        # همچنین جستجو در script/link tags برای پلاگین‌های اضافی
-        for tag in all_tags:
-            src = tag.get('src', '') or tag.get('href', '')
-            if not src:
+        logger.info(f"Total plugins detected after initial scan: {len(plugins)}")
+        
+        # جستجوی اضافی: بررسی مستقیم در HTML برای پلاگین‌های خاص که ممکن است پیدا نشده باشند
+        # این برای پلاگین‌هایی است که ممکن است در script/link tags نباشند
+        for key, info in common_plugins.items():
+            # بررسی اینکه آیا این پلاگین قبلاً پیدا شده است
+            already_found = False
+            for existing_plugin in plugins:
+                existing_slug = existing_plugin.get('slug', '')
+                existing_name = existing_plugin.get('name', '')
+                key_normalized = key.replace('-', '').replace('_', '').lower()
+                existing_normalized = existing_slug.replace('-', '').replace('_', '').lower()
+                
+                if (key_normalized == existing_normalized or
+                    key_normalized in existing_normalized or
+                    existing_normalized in key_normalized):
+                    already_found = True
+                    break
+            
+            if already_found:
                 continue
             
-            src_lower = src.lower()
+            # جستجو در HTML برای این پلاگین خاص
+            key_variations = [
+                key,
+                key.replace('-', '_'),
+                key.replace('_', '-'),
+                key.replace('-', ''),
+                key.replace('_', ''),
+            ]
             
-            # جستجو در wp-content/plugins/
-            plugin_match = re.search(r'wp-content/plugins/([^/]+)', src_lower)
-            if plugin_match:
-                plugin_slug = plugin_match.group(1)
+            found = False
+            for variation in key_variations:
+                # جستجو در مسیر plugins - با الگوهای مختلف
+                search_patterns = [
+                    f'wp-content/plugins/{variation}',
+                    f'plugins/{variation}',
+                    f'/plugins/{variation}/',
+                    f'wp-content/plugins/{variation}/',
+                ]
                 
-                if plugin_slug in detected_plugins:
-                    continue
+                for pattern in search_patterns:
+                    if pattern in html_lower:
+                        plugin_info = info.copy()
+                        plugin_info['slug'] = variation
+                        # بررسی تکراری نبودن
+                        if variation not in [p.get('slug', '') for p in plugins]:
+                            detected_plugins.add(variation)
+                            plugins.append(plugin_info)
+                            found = True
+                            logger.info(f"Found plugin via direct search: {key} (as {variation})")
+                            break
                 
-                # پیدا کردن نام پلاگین از لیست
-                plugin_info = None
-                plugin_slug_normalized = plugin_slug.replace('-', '').replace('_', '').lower()
-                
-                for key, info in common_plugins.items():
-                    key_normalized = key.replace('-', '').replace('_', '').lower()
-                    if (key_normalized == plugin_slug_normalized or 
+                if found:
+                    break
+            
+            # اگر پیدا نشد، سعی می‌کنیم با تطبیق جزئی پیدا کنیم
+            if not found:
+                key_normalized = key.replace('-', '').replace('_', '').lower()
+                for plugin_slug in all_plugin_slugs:
+                    # بررسی اینکه آیا این slug قبلاً استفاده شده است
+                    slug_used = False
+                    for existing_plugin in plugins:
+                        if existing_plugin.get('slug', '') == plugin_slug:
+                            slug_used = True
+                            break
+                    
+                    if slug_used:
+                        continue
+                    
+                    plugin_slug_normalized = plugin_slug.replace('-', '').replace('_', '').lower()
+                    # تطبیق جزئی - کاهش threshold
+                    if (key_normalized == plugin_slug_normalized or
                         key_normalized in plugin_slug_normalized or 
-                        plugin_slug_normalized in key_normalized):
+                        plugin_slug_normalized in key_normalized or
+                        (len(key_normalized) > 4 and key_normalized[:4] in plugin_slug_normalized) or
+                        (len(plugin_slug_normalized) > 4 and plugin_slug_normalized[:4] in key_normalized)):
                         plugin_info = info.copy()
                         plugin_info['slug'] = plugin_slug
-                        break
-                
-                if not plugin_info:
-                    # اگر در لیست نبود، از slug استفاده می‌کنیم
-                    plugin_name = plugin_slug.replace('-', ' ').replace('_', ' ').title()
-                    plugin_info = {
-                        'name': plugin_name,
-                        'slug': plugin_slug,
-                        'category': 'Unknown'
-                    }
-                
-                detected_plugins.add(plugin_slug)
-                plugins.append(plugin_info)
-            
-            # جستجو مستقیم در src برای پلاگین‌های خاص
-            for key, info in common_plugins.items():
-                # جستجوی دقیق‌تر - باید در مسیر plugins باشد
-                if key in src_lower and ('plugins/' in src_lower or 'wp-content' in src_lower):
-                    if key not in [p.get('slug', '') for p in plugins]:
-                        plugin_info = info.copy()
-                        plugin_info['slug'] = key
-                        if key not in detected_plugins:
-                            detected_plugins.add(key)
-                            plugins.append(plugin_info)
-        
-        # جستجو در HTML content برای پلاگین‌های خاص - بهبود یافته
-        html_lower = html_content.lower()
-        
-        # استخراج همه plugin slugs از کل HTML (نه فقط script/link tags)
-        all_plugin_slugs_from_html = set(re.findall(r'wp-content/plugins/([^/\s"\'<>]+)', html_lower))
-        
-        for plugin_slug in all_plugin_slugs_from_html:
-            if plugin_slug in detected_plugins:
-                continue
-            
-            # پیدا کردن نام پلاگین از لیست
-            plugin_info = None
-            plugin_slug_normalized = plugin_slug.replace('-', '').replace('_', '').lower()
-            
-            for key, info in common_plugins.items():
-                key_normalized = key.replace('-', '').replace('_', '').lower()
-                if (key_normalized == plugin_slug_normalized or 
-                    key_normalized in plugin_slug_normalized or 
-                    plugin_slug_normalized in key_normalized):
-                    plugin_info = info.copy()
-                    plugin_info['slug'] = plugin_slug
-                    break
-            
-            if not plugin_info:
-                # اگر در لیست نبود، از slug استفاده می‌کنیم
-                plugin_name = plugin_slug.replace('-', ' ').replace('_', ' ').title()
-                plugin_info = {
-                    'name': plugin_name,
-                    'slug': plugin_slug,
-                    'category': 'Unknown'
-                }
-            
-            detected_plugins.add(plugin_slug)
-            plugins.append(plugin_info)
-        
-        # همچنین جستجو برای پلاگین‌های خاص از لیست
-        for key, info in common_plugins.items():
-            if key in detected_plugins:
-                continue
-            
-            key_normalized = key.replace('-', '').replace('_', '')
-            html_normalized = html_lower.replace('-', '').replace('_', '')
-            
-            # جستجوی دقیق‌تر - باید در wp-content/plugins/ باشد
-            if (f'wp-content/plugins/{key}' in html_lower or 
-                f'plugins/{key}' in html_lower or
-                (key_normalized in html_normalized and 'plugins' in html_lower)):
-                plugin_info = info.copy()
-                plugin_info['slug'] = key
-                detected_plugins.add(key)
-                plugins.append(plugin_info)
-        
-        # جستجوی پلاگین‌های فارسی و خاص با الگوهای مختلف
-        persian_plugin_patterns = {
-            'zarinpal': ['zarinpal', 'zarin-pal', 'زرین‌پال'],
-            'digits': ['digits', 'دیجیتس'],
-            'persian-calendar': ['persian-calendar', 'shamsi', 'تقویم', 'شمسی'],
-            'woodmart': ['woodmart', 'wood-mart', 'وودمارت'],
-            'rocket': ['wp-rocket', 'rocket', 'راکت'],
-            'mailchimp': ['mailchimp', 'mail-chimp', 'میل چیمپ'],
-            'classic-editor': ['classic-editor', 'classic-editor', 'ویرایشگر کلاسیک'],
-            'classic-widgets': ['classic-widgets', 'classic-widget', 'ابزارک'],
-            'revslider': ['revslider', 'revolution-slider', 'revolution', 'slider-revolution'],
-            'advanced-database-cleaner': ['advanced-database-cleaner', 'database-cleaner', 'پاک‌کننده'],
-            'safe-svg': ['safe-svg', 'safe-svg', 'svg'],
-            'woocommerce-invoice-pro': ['woocommerce-invoice', 'invoice-pro', 'فاکتور'],
-            'woocommerce-checkout-field-editor': ['checkout-field-editor', 'thwcfe', 'ویرایشگر فرم'],
-            'woocommerce-sms': ['woocommerce-sms', 'woocommerce-sms', 'پیامک'],
-        }
-        
-        for plugin_key, patterns in persian_plugin_patterns.items():
-            if plugin_key in detected_plugins:
-                continue
-            
-            for pattern in patterns:
-                if pattern in html_lower and ('plugins/' in html_lower or 'wp-content' in html_lower):
-                    if plugin_key in common_plugins:
-                        plugin_info = common_plugins[plugin_key].copy()
-                        plugin_info['slug'] = plugin_key
-                        detected_plugins.add(plugin_key)
+                        detected_plugins.add(plugin_slug)
                         plugins.append(plugin_info)
+                        logger.info(f"Found plugin via partial match: {key} matched with {plugin_slug}")
                         break
         
         # استخراج نسخه پلاگین‌ها از script/link tags
         for plugin in plugins:
             slug = plugin.get('slug', '')
             if slug:
-                version_match = re.search(rf'{re.escape(slug)}[^/]*/([\d.]+)', html_content, re.I)
-                if version_match:
-                    plugin['version'] = version_match.group(1)
+                # جستجوی نسخه در مسیر پلاگین
+                version_patterns = [
+                    rf'{re.escape(slug)}[^/]*/([\d.]+)',
+                    rf'{re.escape(slug)}-([\d.]+)',
+                    rf'{re.escape(slug)}_([\d.]+)',
+                ]
+                for pattern in version_patterns:
+                    version_match = re.search(pattern, html_content, re.I)
+                    if version_match:
+                        plugin['version'] = version_match.group(1)
+                        break
         
-        return plugins
+        logger.info(f"Total plugins detected after all searches: {len(plugins)}")
+        
+        # اضافه کردن همه plugin slugs پیدا شده که هنوز اضافه نشده‌اند
+        for plugin_slug in all_plugin_slugs:
+            # بررسی اینکه آیا این slug قبلاً اضافه شده است
+            slug_exists = False
+            for existing_plugin in plugins:
+                if existing_plugin.get('slug', '') == plugin_slug:
+                    slug_exists = True
+                    break
+            
+            if not slug_exists:
+                # اگر پیدا نشد، به عنوان Unknown اضافه می‌کنیم
+                plugin_name = plugin_slug.replace('-', ' ').replace('_', ' ').title()
+                plugins.append({
+                    'name': plugin_name,
+                    'slug': plugin_slug,
+                    'category': 'Unknown'
+                })
+                logger.info(f"Added unknown plugin: {plugin_slug}")
+        
+        # حذف تکراری‌ها بر اساس slug
+        unique_plugins = {}
+        for plugin in plugins:
+            slug = plugin.get('slug', '')
+            if slug and slug not in unique_plugins:
+                unique_plugins[slug] = plugin
+            elif slug:
+                # اگر تکراری است، یکی با نام بهتر را نگه می‌داریم
+                existing = unique_plugins[slug]
+                if plugin.get('category') != 'Unknown' and existing.get('category') == 'Unknown':
+                    unique_plugins[slug] = plugin
+        
+        final_plugins = list(unique_plugins.values())
+        logger.info(f"Final unique plugins after deduplication: {len(final_plugins)}")
+        logger.info(f"Plugin names: {[p.get('name', p.get('slug', 'Unknown')) for p in final_plugins[:30]]}")
+        
+        return final_plugins
     
     async def _detect_joomla_extensions(self, html_content: str, soup: BeautifulSoup, url: str) -> List[Dict[str, Any]]:
         """تشخیص Extension‌های Joomla"""

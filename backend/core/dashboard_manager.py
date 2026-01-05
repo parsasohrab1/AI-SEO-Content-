@@ -412,4 +412,10 @@ class DashboardManager:
             })
         
         return recommendations
+    
+    @classmethod
+    def clear_all_dashboards(cls):
+        """پاک کردن تمام داشبوردهای کش شده (برای تست یا رفع مشکل)"""
+        cls._dashboards.clear()
+        logger.info("All dashboards cleared from memory")
 

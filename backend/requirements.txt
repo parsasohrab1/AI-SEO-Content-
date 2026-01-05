@@ -24,6 +24,7 @@ robotexclusionrulesparser==1.0.0
 google-api-python-client==2.108.0
 google-auth-httplib2==0.1.1
 google-auth-oauthlib==1.1.0
+pytrends==4.9.2  # Google Trends integration
 
 # AI & ML
 openai==1.3.5
@@ -31,6 +32,11 @@ langchain==0.0.340
 transformers==4.36.0
 sentence-transformers==2.2.2
 spacy==3.7.2
+scikit-learn==1.3.2  # برای خوشه‌بندی کلمات کلیدی
+torch>=2.0.0  # برای Local AI Content Generator (اختیاری - برای GPU)
+accelerate>=0.20.0  # برای Local AI (اختیاری)
+bitsandbytes>=0.41.0  # برای quantization (اختیاری)
+replicate==0.20.0  # برای Stable Diffusion API
 
 # Image Processing
 pillow==10.1.0

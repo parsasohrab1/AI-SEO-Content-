@@ -1134,6 +1134,21 @@ async def generate_content_by_keywords(analysis_id: str, request_data: Dict):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/clear-cache")
+async def clear_dashboard_cache():
+    """پاک کردن تمام داشبوردهای کش شده (برای تست یا رفع مشکل)"""
+    try:
+        from core.dashboard_manager import DashboardManager
+        DashboardManager.clear_all_dashboards()
+        return {
+            'message': 'تمام داشبوردهای کش شده پاک شدند',
+            'status': 'success'
+        }
+    except Exception as e:
+        logger.error(f"Error clearing cache: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/dashboard/{analysis_id}/generate-content")
 async def generate_additional_content(analysis_id: str, content_spec: Dict = None):
     """تولید محتوای اضافی یا تولید مجدد محتوا"""
