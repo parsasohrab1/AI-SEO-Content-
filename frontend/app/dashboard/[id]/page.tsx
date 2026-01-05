@@ -151,17 +151,34 @@ export default function DashboardPage() {
             </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Dashboard یافت نشد</h2>
             <p className="text-gray-600 mb-4">{error || 'Dashboard یافت نشد'}</p>
-            <p className="text-sm text-gray-500 mb-6">
-              این داشبورد احتمالاً بعد از restart شدن بک‌اند از بین رفته است. 
-              داده‌ها در حال حاضر در حافظه ذخیره می‌شوند و با restart از بین می‌روند.
-            </p>
-            <div className="space-x-4">
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+              <p className="text-sm text-yellow-800 mb-2">
+                <strong>علت احتمالی:</strong>
+              </p>
+              <ul className="list-disc list-inside text-sm text-yellow-700 space-y-1">
+                <li>Backend restart شده و داده‌های درون‌حافظه از دست رفته است</li>
+                <li>Analysis ID معتبر نیست یا منقضی شده است</li>
+                <li>Backend در حال اجرا نیست (بررسی کنید که Backend روی پورت 8002 در حال اجرا باشد)</li>
+              </ul>
+            </div>
+            <div className="flex gap-3">
               <Link
                 href="/"
-                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 ایجاد تحلیل جدید
               </Link>
+              <button
+                onClick={() => {
+                  setError(null)
+                  setLoading(true)
+                  shouldPollRef.current = true
+                  window.location.reload()
+                }}
+                className="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                تلاش مجدد
+              </button>
             </div>
           </div>
         </div>
@@ -301,6 +318,231 @@ export default function DashboardPage() {
           {data.data?.site_analysis && (
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-xl font-semibold mb-4">خلاصه تحلیل سایت</h2>
+              
+              {/* CMS Details */}
+              {data.data.site_analysis.cms_type && data.data.site_analysis.cms_type !== 'custom' && (
+                <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <h3 className="text-lg font-semibold text-blue-900 mb-3">جزئیات CMS و تکنولوژی</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {/* CMS Type & Version */}
+                    <div>
+                      <span className="text-sm text-gray-600 block mb-1">CMS:</span>
+                      <p className="font-medium capitalize">
+                        {data.data.site_analysis.cms_type}
+                        {data.data.site_analysis.cms_details?.cms_version && (
+                          <span className="text-gray-500 ml-2">v{data.data.site_analysis.cms_details.cms_version}</span>
+                        )}
+                      </p>
+                    </div>
+                    
+                    {/* Page Builder */}
+                    {data.data.site_analysis.cms_details?.page_builder && (
+                      <div>
+                        <span className="text-sm text-gray-600 block mb-1">صفحه‌ساز:</span>
+                        <p className="font-medium">
+                          {data.data.site_analysis.cms_details.page_builder}
+                          {data.data.site_analysis.cms_details.page_builder_version && (
+                            <span className="text-gray-500 ml-2">v{data.data.site_analysis.cms_details.page_builder_version}</span>
+                          )}
+                        </p>
+                      </div>
+                    )}
+                    
+                    {/* Programming Language */}
+                    {data.data.site_analysis.cms_details?.programming_language && (
+                      <div>
+                        <span className="text-sm text-gray-600 block mb-1">زبان برنامه‌نویسی:</span>
+                        <p className="font-medium">
+                          {data.data.site_analysis.cms_details.programming_language}
+                          {data.data.site_analysis.cms_details.php_version && (
+                            <span className="text-gray-500 ml-2">v{data.data.site_analysis.cms_details.php_version}</span>
+                          )}
+                        </p>
+                      </div>
+                    )}
+                    
+                    {/* Database */}
+                    {data.data.site_analysis.cms_details?.database && (
+                      <div>
+                        <span className="text-sm text-gray-600 block mb-1">پایگاه داده:</span>
+                        <p className="font-medium">{data.data.site_analysis.cms_details.database}</p>
+                      </div>
+                    )}
+                    
+                    {/* Social Media */}
+                    {data.data.site_analysis.cms_details?.social_media && 
+                     data.data.site_analysis.cms_details.social_media.length > 0 && (
+                      <div className="md:col-span-2 lg:col-span-3">
+                        <span className="text-sm text-gray-600 block mb-2">شبکه‌های اجتماعی:</span>
+                        <div className="flex flex-wrap gap-2">
+                          {data.data.site_analysis.cms_details.social_media.map((social: any, index: number) => (
+                            <a
+                              key={index}
+                              href={social.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center px-3 py-1 bg-blue-100 text-blue-800 rounded-lg hover:bg-blue-200 text-sm font-medium"
+                            >
+                              {social.platform === 'LinkedIn' && '💼'}
+                              {social.platform === 'Facebook' && '📘'}
+                              {social.platform === 'Twitter' && '🐦'}
+                              {social.platform === 'Instagram' && '📷'}
+                              {social.platform === 'YouTube' && '📺'}
+                              {social.platform === 'Telegram' && '✈️'}
+                              <span className="ml-1">{social.platform}</span>
+                              {social.profile && (
+                                <span className="ml-1 text-blue-600">({social.profile})</span>
+                              )}
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              {/* Themes/Templates (برای همه CMS‌ها) */}
+              {data.data.site_analysis.cms_details?.themes && 
+               data.data.site_analysis.cms_details.themes.length > 0 && (
+                <div className="mb-6 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                  <h3 className="text-lg font-semibold text-purple-900 mb-3">
+                    {data.data.site_analysis.cms_type === 'wordpress' && 'قالب‌های WordPress'}
+                    {data.data.site_analysis.cms_type === 'joomla' && 'قالب‌های Joomla'}
+                    {data.data.site_analysis.cms_type === 'drupal' && 'قالب‌های Drupal'}
+                    {data.data.site_analysis.cms_type === 'shopify' && 'قالب‌های Shopify'}
+                    {!['wordpress', 'joomla', 'drupal', 'shopify'].includes(data.data.site_analysis.cms_type || '') && 'قالب‌ها'}
+                    {' '}({data.data.site_analysis.cms_details.themes.length})
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {data.data.site_analysis.cms_details.themes.map((theme: any, index: number) => (
+                      <div
+                        key={index}
+                        className="bg-white p-4 rounded-lg border border-purple-200 hover:shadow-md transition-shadow"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-gray-900 text-base mb-2">
+                              {theme.name}
+                            </h4>
+                            <div className="flex items-center gap-2 flex-wrap mb-2">
+                              <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                theme.type === 'Premium' ? 'bg-purple-100 text-purple-800' :
+                                theme.type === 'Free' ? 'bg-green-100 text-green-800' :
+                                theme.type === 'Free/Pro' ? 'bg-blue-100 text-blue-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {theme.type}
+                              </span>
+                              <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs font-medium">
+                                {theme.category}
+                              </span>
+                              {theme.version && (
+                                <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs">
+                                  v{theme.version}
+                                </span>
+                              )}
+                            </div>
+                            {theme.slug && (
+                              <p className="text-xs text-gray-500">Slug: {theme.slug}</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* دسته‌بندی قالب‌ها */}
+                  {(() => {
+                    const categories: { [key: string]: number } = {}
+                    data.data.site_analysis.cms_details.themes.forEach((theme: any) => {
+                      const cat = theme.category || 'Unknown'
+                      categories[cat] = (categories[cat] || 0) + 1
+                    })
+                    
+                    return Object.keys(categories).length > 1 ? (
+                      <div className="mt-4 pt-4 border-t border-purple-200">
+                        <h4 className="text-sm font-semibold text-purple-900 mb-2">دسته‌بندی قالب‌ها:</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {Object.entries(categories).map(([cat, count]) => (
+                            <span
+                              key={cat}
+                              className="px-3 py-1 bg-white text-purple-800 rounded-lg text-xs font-medium border border-purple-200"
+                            >
+                              {cat}: {count}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null
+                  })()}
+                </div>
+              )}
+              
+              {/* Plugins/Extensions */}
+              {data.data.site_analysis.cms_details?.plugins && 
+               data.data.site_analysis.cms_details.plugins.length > 0 && (
+                <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <h3 className="text-lg font-semibold text-green-900 mb-3">
+                    پلاگین‌ها و افزونه‌های نصب شده ({data.data.site_analysis.cms_details.plugins.length})
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {data.data.site_analysis.cms_details.plugins.map((plugin: any, index: number) => (
+                      <div
+                        key={index}
+                        className="bg-white p-3 rounded-lg border border-green-200 hover:shadow-md transition-shadow"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-gray-900 text-sm mb-1">
+                              {plugin.name}
+                            </h4>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-medium">
+                                {plugin.category}
+                              </span>
+                              {plugin.version && (
+                                <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs">
+                                  v{plugin.version}
+                                </span>
+                              )}
+                            </div>
+                            {plugin.slug && (
+                              <p className="text-xs text-gray-500 mt-1">Slug: {plugin.slug}</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* دسته‌بندی پلاگین‌ها */}
+                  {(() => {
+                    const categories: { [key: string]: number } = {}
+                    data.data.site_analysis.cms_details.plugins.forEach((plugin: any) => {
+                      const cat = plugin.category || 'Unknown'
+                      categories[cat] = (categories[cat] || 0) + 1
+                    })
+                    
+                    return Object.keys(categories).length > 1 ? (
+                      <div className="mt-4 pt-4 border-t border-green-200">
+                        <h4 className="text-sm font-semibold text-green-900 mb-2">دسته‌بندی پلاگین‌ها:</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {Object.entries(categories).map(([cat, count]) => (
+                            <span
+                              key={cat}
+                              className="px-3 py-1 bg-white text-green-800 rounded-lg text-xs font-medium border border-green-200"
+                            >
+                              {cat}: {count}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null
+                  })()}
+                </div>
+              )}
+              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {data.data.site_analysis.cms_type && (
                   <div>

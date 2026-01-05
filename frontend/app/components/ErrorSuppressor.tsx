@@ -19,7 +19,11 @@ export function ErrorSuppressor() {
         errorMessage.includes('content-all.js') ||
         errorMessage.includes('Extension context invalidated') ||
         errorMessage.includes('chrome.runtime') ||
-        errorMessage.includes('browser.runtime')
+        errorMessage.includes('browser.runtime') ||
+        errorMessage.includes('message channel closed') ||
+        errorMessage.includes('listener indicated an asynchronous response') ||
+        errorMessage.includes('hot-reloader-client.js') ||
+        errorMessage.includes('Fast Refresh')
       ) {
         // جلوگیری از نمایش خطا در کنسول
         event.preventDefault()
@@ -34,7 +38,12 @@ export function ErrorSuppressor() {
       if (
         reason.includes('Could not establish connection') ||
         reason.includes('Receiving end does not exist') ||
-        reason.includes('Extension context invalidated')
+        reason.includes('Extension context invalidated') ||
+        reason.includes('message channel closed') ||
+        reason.includes('listener indicated an asynchronous response') ||
+        reason.includes('content-all.js') ||
+        reason.includes('chrome.runtime') ||
+        reason.includes('browser.runtime')
       ) {
         event.preventDefault()
         return false
