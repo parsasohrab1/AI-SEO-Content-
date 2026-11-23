@@ -48,7 +48,7 @@ class LocalAIContentGenerator:
             else:
                 self.device = -1  # CPU
             
-            # بارگذاری مدل
+            # Load the model
             try:
                 self.generator = pipeline(
                     "text-generation",

@@ -2,19 +2,19 @@
 
 تولید ویدیو بهینه برای SEO با استفاده از Lumen5، Synthesia یا MoviePy (Fallback)
 
-## 📋 فهرست مطالب
+## 📋 Table of Contents
 
-- [نصب و راه‌اندازی](#نصب-و-راه‌اندازی)
+- [Installation and Setup](#installation-and-setup)
 - [استفاده](#استفاده)
-- [ویژگی‌ها](#ویژگی‌ها)
+- [Features](#features)
 - [پیکربندی](#پیکربندی)
 - [مثال‌ها](#مثال‌ها)
 
 ---
 
-## 🚀 نصب و راه‌اندازی
+## 🚀 Installation and Setup
 
-### 1. نصب وابستگی‌ها
+### 1. Install Dependencies
 
 ```bash
 pip install moviepy pillow httpx aiofiles
@@ -43,7 +43,7 @@ brew install ffmpeg
 
 ### 3. تنظیم API Keys (اختیاری)
 
-در فایل `.env`:
+In the `.env` file:
 
 ```env
 # برای Lumen5
@@ -94,7 +94,7 @@ result = await generator.generate_video(
 
 ---
 
-## ✨ ویژگی‌ها
+## ✨ Features
 
 ### 1. تولید ویدیو با Lumen5
 
@@ -262,26 +262,26 @@ result = await generator.generate_video(
 
 ### مشکل: "MoviePy not available"
 
-**راه‌حل:**
+**Solution:**
 ```bash
 pip install moviepy
 ```
 
 ### مشکل: "FFmpeg not found"
 
-**راه‌حل:**
+**Solution:**
 1. نصب FFmpeg (به بخش نصب مراجعه کنید)
 2. اضافه کردن FFmpeg به PATH
 
 ### مشکل: "No video generation model available"
 
-**راه‌حل:**
+**Solution:**
 1. نصب MoviePy (fallback)
 2. یا تنظیم API keys برای Lumen5/Synthesia
 
 ### مشکل: ویدیو خیلی بزرگ است
 
-**راه‌حل:**
+**Solution:**
 - استفاده از `_optimize_video` برای فشرده‌سازی
 - کاهش duration
 - کاهش کیفیت در MoviePy

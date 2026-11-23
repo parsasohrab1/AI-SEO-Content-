@@ -750,7 +750,7 @@ def _generate_alerts(dashboard_data, site_analysis, seo_analysis):
     alerts = []
     current_time = datetime.now()
     
-    # بررسی وضعیت
+    # Check the status
     status = dashboard_data.get('status', 'unknown')
     if status == 'failed':
         error_msg = dashboard_data.get('error') or dashboard_data.get('data', {}).get('error', 'خطای نامشخص')
@@ -958,7 +958,7 @@ async def get_live_monitoring(analysis_id: str):
                 ]
             },
             
-            # پیش‌بینی
+            # Prediction
             'predictions': {
                 'estimated_completion': _estimate_completion(dashboard_data),
                 'next_check_recommended': (current_time + timedelta(minutes=5)).isoformat()

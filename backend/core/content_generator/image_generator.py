@@ -123,7 +123,7 @@ class ImageContentGenerator:
             # تولید نام فایل بهینه
             filename = self._generate_optimized_filename(keyword, language)
             
-            # ذخیره تصویر
+            # Save the image
             image_path = await self._save_image(image_data, filename)
             
             # بهینه‌سازی تصویر (تبدیل به WebP)
@@ -311,7 +311,7 @@ class ImageContentGenerator:
             images_dir = Path("backend/generated_content/images")
             images_dir.mkdir(parents=True, exist_ok=True)
             
-            # ذخیره تصویر
+            # Save the image
             image_path = images_dir / filename
             async with aiofiles.open(image_path, 'wb') as f:
                 await f.write(image_data)

@@ -4,7 +4,7 @@
 
 این ماژول تحلیل ویژگی‌های SERP (Search Engine Results Page) را انجام می‌دهد. با استخراج Featured Snippets، People Also Ask، Related Searches و سایر ویژگی‌ها، به شما کمک می‌کند استراتژی SEO خود را بهبود دهید.
 
-## ✨ ویژگی‌ها
+## ✨ Features
 
 - ✅ استخراج Featured Snippets
 - ✅ استخراج People Also Ask (PAA)
@@ -15,7 +15,7 @@
 - ✅ استخراج Organic Results
 - ✅ پشتیبانی از فارسی و انگلیسی
 
-## 🚀 استفاده
+## 🚀 Usage
 
 ### مثال 1: تحلیل ساده
 

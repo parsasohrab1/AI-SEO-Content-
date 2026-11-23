@@ -4,7 +4,7 @@
 
 این ماژول تحلیل فاصله کلمات کلیدی (Keyword Gap Analysis) را انجام می‌دهد. با مقایسه کلمات کلیدی شما و رقبا، فرصت‌ها و مزیت‌ها را شناسایی می‌کند.
 
-## ✨ ویژگی‌ها
+## ✨ Features
 
 - ✅ شناسایی فرصت‌ها (کلمات کلیدی رقبا که شما ندارید)
 - ✅ شناسایی مزیت‌ها (کلمات کلیدی شما که رقبا ندارند)
@@ -15,7 +15,7 @@
 - ✅ پشتیبانی از SEMrush و Ahrefs API
 - ✅ روش‌های رایگان (بدون نیاز به API)
 
-## 🚀 استفاده
+## 🚀 Usage
 
 ### مثال 1: تحلیل ساده
 
@@ -218,7 +218,7 @@ async def main():
         language='en'
     )
     
-    # نمایش خلاصه
+    # Display the summary
     summary = result['summary']
     print(f"فرصت‌ها: {summary['opportunities_count']}")
     print(f"مزیت‌ها: {summary['advantages_count']}")

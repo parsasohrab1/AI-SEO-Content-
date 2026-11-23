@@ -6,7 +6,7 @@
 
 ---
 
-## 🚀 راه‌اندازی سریع
+## 🚀 Quick Start
 
 ### روش 1: با Docker (اگر Docker Desktop نصب است)
 

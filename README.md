@@ -412,7 +412,7 @@ class AutoChangeImplementation:
                 # ذخیره برای قابلیت rollback
                 await self.change_tracker.track_change(change, result)
                 
-                # اعتبارسنجی
+                # Validation
                 if await self.validate_change(change):
                     applied_changes.append({
                         'change': change,

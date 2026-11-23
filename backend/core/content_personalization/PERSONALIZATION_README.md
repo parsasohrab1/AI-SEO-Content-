@@ -2,19 +2,19 @@
 
 شخصی‌سازی محتوا بر اساس مخاطب، Intent و سطح تخصص
 
-## 📋 فهرست مطالب
+## 📋 Table of Contents
 
-- [نصب و راه‌اندازی](#نصب-و-راه‌اندازی)
+- [Installation and Setup](#installation-and-setup)
 - [استفاده](#استفاده)
-- [ویژگی‌ها](#ویژگی‌ها)
+- [Features](#features)
 - [پیکربندی](#پیکربندی)
 - [مثال‌ها](#مثال‌ها)
 
 ---
 
-## 🚀 نصب و راه‌اندازی
+## 🚀 Installation and Setup
 
-### 1. نصب وابستگی‌ها
+### 1. Install Dependencies
 
 ```bash
 pip install openai
@@ -22,7 +22,7 @@ pip install openai
 
 ### 2. تنظیم API Key (اختیاری)
 
-در فایل `.env`:
+In the `.env` file:
 
 ```env
 OPENAI_API_KEY=your_openai_api_key
@@ -75,7 +75,7 @@ personalized = await personalizer.personalize_content(
 
 ---
 
-## ✨ ویژگی‌ها
+## ✨ Features
 
 ### 1. شخصی‌سازی بر اساس مخاطب
 
@@ -227,20 +227,20 @@ personalized = await personalizer.personalize_content(
 
 ### مشکل: "openai package not installed"
 
-**راه‌حل:**
+**Solution:**
 ```bash
 pip install openai
 ```
 
 ### مشکل: "Could not initialize OpenAI client"
 
-**راه‌حل:**
+**Solution:**
 1. بررسی API key در `.env`
 2. یا استفاده از rule-based personalization (بدون API key)
 
 ### مشکل: محتوای شخصی‌سازی شده مناسب نیست
 
-**راه‌حل:**
+**Solution:**
 1. بررسی صحت `target_audience`
 2. بررسی صحت `user_intent`
 3. استفاده از AI-based personalization (با API key)

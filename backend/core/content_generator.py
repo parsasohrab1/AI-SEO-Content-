@@ -946,7 +946,7 @@ By following this tutorial, you can significantly improve your website's {main_k
 
 این آموزش جامع به شما نشان می‌دهد که چگونه {main_keyword} را به صورت حرفه‌ای پیاده‌سازی کنید.
 
-## پیش‌نیازها
+## Prerequisites
 
 قبل از شروع، مطمئن شوید که:
 - دسترسی به پنل مدیریت سایت دارید
@@ -983,7 +983,7 @@ By following this tutorial, you can significantly improve your website's {main_k
 
 پس از پیاده‌سازی، نتایج را بررسی کنید و در صورت نیاز بهبود دهید.
 
-## نکات مهم
+## Important Notes
 
 - همیشه از آخرین استانداردها پیروی کنید
 - به صورت منظم محتوا را به‌روزرسانی کنید

@@ -1,6 +1,6 @@
 # راهنمای استقرار - AI Content Factory Pro
 
-## 📋 پیش‌نیازها
+## 📋 Prerequisites
 
 ### Infrastructure
 - Docker و Docker Compose
@@ -23,7 +23,7 @@ git clone <repository-url>
 cd AI-SEO-Content-
 ```
 
-### 2. تنظیم Environment Variables
+### 2. Set Environment Variables
 ```bash
 # کپی فایل .env
 cp backend/.env.example backend/.env
@@ -37,10 +37,10 @@ nano backend/.env
 # Build و Start تمام سرویس‌ها
 docker-compose up -d
 
-# مشاهده لاگ‌ها
+# View logs
 docker-compose logs -f
 
-# بررسی وضعیت
+# Check the status
 docker-compose ps
 ```
 
@@ -107,7 +107,7 @@ curl http://localhost:8000/metrics
 
 ### Logs
 ```bash
-# مشاهده لاگ‌ها
+# View logs
 docker-compose logs -f api
 docker-compose logs -f worker
 ```

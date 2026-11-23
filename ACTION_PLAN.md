@@ -11,7 +11,7 @@
 
 #### ❌ مشکل 1: فقط استخراج ساده بر اساس تکرار کلمات
 
-**وضعیت فعلی:**
+**Current status:**
 ```python
 # در seo_analyzer.py - خط 321
 def _extract_keywords(self, text: str) -> List[Dict[str, Any]]:

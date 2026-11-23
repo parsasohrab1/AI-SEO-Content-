@@ -32,7 +32,7 @@ async def example_basic_gap_analysis():
     
     print(f"\n✅ نتایج تحلیل فاصله کلمات کلیدی:\n")
     
-    # نمایش خلاصه
+    # Display the summary
     summary = result.get('summary', {})
     print("📊 خلاصه:")
     print(f"  کلمات کلیدی شما: {summary.get('your_total_keywords', 0)}")

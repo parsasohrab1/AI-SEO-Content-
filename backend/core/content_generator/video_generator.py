@@ -353,7 +353,7 @@ class VideoContentGenerator:
                     draw.text((60, y_offset), line, fill=(255, 255, 255), font=font)
                     y_offset += 80
                 
-                # ذخیره تصویر
+                # Save the image
                 img_path = temp_dir / f"scene_{i}.png"
                 img.save(img_path)
                 

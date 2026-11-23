@@ -129,7 +129,7 @@ class SemanticKeywordAnalyzer:
         candidate_embeddings: np.ndarray
     ) -> np.ndarray:
         """محاسبه Cosine Similarity"""
-        # نرمال‌سازی
+        # Normalization
         main_norm = main_embedding / np.linalg.norm(main_embedding)
         candidate_norms = candidate_embeddings / np.linalg.norm(
             candidate_embeddings,

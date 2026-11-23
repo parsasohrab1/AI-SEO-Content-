@@ -626,7 +626,7 @@ httpx==0.25.1  # موجود است
 
 ## 5. تنظیم Environment Variables
 
-در فایل `.env`:
+In the `.env` file:
 
 ```env
 # OpenAI API

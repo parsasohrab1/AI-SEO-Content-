@@ -4,7 +4,7 @@
 
 این ماژول تحلیل فاصله محتوا (Content Gap Analysis) را انجام می‌دهد. با مقایسه محتوای شما و رقبا، موضوعات، زوایا و انواع محتوای موجود در رقبا اما نه در شما را شناسایی می‌کند.
 
-## ✨ ویژگی‌ها
+## ✨ Features
 
 - ✅ شناسایی موضوعات موجود در رقبا اما نه در شما
 - ✅ تحلیل زوایای مختلف یک موضوع
@@ -14,7 +14,7 @@
 - ✅ تولید پیشنهادات عملی
 - ✅ پشتیبانی از Semantic Analysis
 
-## 🚀 استفاده
+## 🚀 Usage
 
 ### مثال 1: تحلیل ساده
 
@@ -209,7 +209,7 @@ async def main():
         competitor_content=competitor_content
     )
     
-    # نمایش خلاصه
+    # Display the summary
     summary = result['summary']
     print(f"Topic Gaps: {summary['total_topic_gaps']}")
     print(f"Overall Gap Score: {summary['overall_gap_score']}/100")

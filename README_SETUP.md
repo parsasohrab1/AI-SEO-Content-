@@ -1,8 +1,8 @@
 # راهنمای راه‌اندازی - AI Content Factory Pro
 
-## 🚀 راه‌اندازی سریع
+## 🚀 Quick Start
 
-### پیش‌نیازها
+### Prerequisites
 - Docker و Docker Compose
 - Python 3.11+ (برای توسعه محلی)
 - Node.js 20+ (برای توسعه Frontend)
@@ -17,7 +17,7 @@ cd AI-SEO-Content-
 # راه‌اندازی تمام سرویس‌ها
 docker-compose up -d
 
-# مشاهده لاگ‌ها
+# View logs
 docker-compose logs -f
 ```
 
@@ -93,7 +93,7 @@ cp backend/.env.example backend/.env
 # در آینده اضافه می‌شود
 ```
 
-## 📚 مستندات
+## 📚 Documentation
 
 - **فازبندی:** `PHASE_PLAN.md`
 - **چک‌لیست:** `IMPLEMENTATION_CHECKLIST.md`
@@ -112,7 +112,7 @@ cp backend/.env.example backend/.env
 # بررسی اجرای سرویس‌ها
 docker-compose ps
 
-# راه‌اندازی مجدد
+# Restart
 docker-compose restart
 ```
 

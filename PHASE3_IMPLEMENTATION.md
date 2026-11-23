@@ -65,7 +65,7 @@ pytest.ini                            # تنظیمات pytest
 - ✅ تست انتشار خطا بین سرویس‌ها
 
 ### 3. Load Testing
-**فایل‌ها:**
+**Files:**
 - `tests/performance/load_test.py` (Locust)
 - `tests/performance/k6_load_test.js` (K6)
 
@@ -134,7 +134,7 @@ k6 run tests/performance/k6_load_test.js
 
 ---
 
-## ⚠️ نکات مهم
+## ⚠️ Important Notes
 
 1. **Mock System:** تست‌ها با Mock Data کار می‌کنند تا نیازی به Backend کامل نباشد
 2. **CI/CD:** تست‌ها به صورت خودکار در GitHub Actions اجرا می‌شوند

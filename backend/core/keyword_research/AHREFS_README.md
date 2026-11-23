@@ -4,7 +4,7 @@
 
 این ماژول یکپارچه‌سازی کامل با Ahrefs API برای تحلیل پیشرفته کلمات کلیدی و رتبه‌بندی است.
 
-## ✨ ویژگی‌ها
+## ✨ Features
 
 - ✅ دریافت معیارهای دقیق کلمات کلیدی (Keyword Metrics)
 - ✅ دریافت کلمات کلیدی رتبه‌دار (Ranking Keywords)
@@ -24,7 +24,7 @@
 2. رفتن به [Ahrefs API](https://ahrefs.com/api)
 3. دریافت API Token و API ID
 
-### 2. تنظیم Environment Variables
+### 2. Set Environment Variables
 
 ```bash
 # در فایل .env

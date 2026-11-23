@@ -1,6 +1,6 @@
 # راهنمای راه‌اندازی داشبورد
 
-## 🚀 راه‌اندازی سریع
+## 🚀 Quick Start
 
 ### روش 1: با Docker Compose (توصیه می‌شود)
 
@@ -8,7 +8,7 @@
 # راه‌اندازی تمام سرویس‌ها
 docker-compose up -d
 
-# مشاهده لاگ‌ها
+# View logs
 docker-compose logs -f frontend
 docker-compose logs -f api
 ```

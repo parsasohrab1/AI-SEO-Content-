@@ -143,7 +143,7 @@ npm run dev
 
 ---
 
-## ⚠️ نکات مهم
+## ⚠️ Important Notes
 
 1. **Stub Modules:** برخی ماژول‌ها (SEO Analyzer, Content Generator, etc.) به صورت Stub هستند و در اسپرینت‌های بعدی پیاده‌سازی می‌شوند.
 

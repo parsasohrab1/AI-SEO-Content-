@@ -2,19 +2,19 @@
 
 تولید تصاویر بهینه برای SEO با استفاده از DALL-E 3 یا Stable Diffusion
 
-## 📋 فهرست مطالب
+## 📋 Table of Contents
 
-- [نصب و راه‌اندازی](#نصب-و-راه‌اندازی)
+- [Installation and Setup](#installation-and-setup)
 - [استفاده](#استفاده)
-- [ویژگی‌ها](#ویژگی‌ها)
+- [Features](#features)
 - [پیکربندی](#پیکربندی)
 - [مثال‌ها](#مثال‌ها)
 
 ---
 
-## 🚀 نصب و راه‌اندازی
+## 🚀 Installation and Setup
 
-### 1. نصب وابستگی‌ها
+### 1. Install Dependencies
 
 ```bash
 pip install openai replicate pillow httpx
@@ -22,7 +22,7 @@ pip install openai replicate pillow httpx
 
 ### 2. تنظیم API Keys
 
-در فایل `.env`:
+In the `.env` file:
 
 ```env
 # برای DALL-E 3
@@ -77,7 +77,7 @@ result = await generator.generate_seo_image(
 
 ---
 
-## ✨ ویژگی‌ها
+## ✨ Features
 
 ### 1. تولید تصویر با DALL-E 3
 
@@ -215,7 +215,7 @@ result = await generator.generate_seo_image(
 
 ### مشکل: "No image generation model available"
 
-**راه‌حل:**
+**Solution:**
 1. بررسی API keys در `.env`
 2. نصب پکیج‌های لازم:
    ```bash
@@ -224,14 +224,14 @@ result = await generator.generate_seo_image(
 
 ### مشکل: "PIL not available"
 
-**راه‌حل:**
+**Solution:**
 ```bash
 pip install pillow
 ```
 
 ### مشکل: تصویر به WebP تبدیل نمی‌شود
 
-**راه‌حل:**
+**Solution:**
 - بررسی نصب Pillow
 - بررسی دسترسی نوشتن در پوشه `generated_content/images`
 
